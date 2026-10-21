@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./config/env');
 const healthRoutes = require('./routes/health.routes');
+const applicationRoutes = require('./routes/application.routes');
+const scanRoutes = require('./routes/scan.routes');
 const notFoundHandler = require('./middleware/notFoundHandler');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -29,6 +31,8 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Route registrations
 app.use('/api/health', healthRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/scans', scanRoutes);
 
 // Catch-all for undefined routes
 app.use(notFoundHandler);
