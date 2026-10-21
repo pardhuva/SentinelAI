@@ -13,6 +13,9 @@ async function setupTestDB() {
 
   if (!mongoServer) {
     mongoServer = await MongoMemoryServer.create({
+      binary: {
+        version: '8.2.6',
+      },
       instance: {
         ip: '127.0.0.1',
       },
