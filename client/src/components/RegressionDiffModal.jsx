@@ -122,7 +122,7 @@ export default function RegressionDiffModal({ scanId, onClose }) {
         ) : !diff || diff.verdict === 'NO_BASELINE' ? (
           <div className="empty-state">
             <div className="empty-state-icon">
-              <InfoIcon size={28} color="#9AA7B7" />
+              <InfoIcon size={28} color="var(--text-secondary)" />
             </div>
             <h4 className="empty-state-title">No Baseline Scan Configured</h4>
             <p className="empty-state-text">
@@ -135,11 +135,11 @@ export default function RegressionDiffModal({ scanId, onClose }) {
             <div className={`diff-verdict-card verdict-${diff.verdict?.toLowerCase()}`}>
               <div className="verdict-icon-wrap">
                 {diff.verdict === 'REGRESSED' ? (
-                  <AlertTriangleIcon size={20} color="#F85149" />
+                  <AlertTriangleIcon size={20} color="var(--color-critical)" />
                 ) : diff.verdict === 'IMPROVED' ? (
-                  <CheckCircleIcon size={20} color="#3FB950" />
+                  <CheckCircleIcon size={20} color="var(--color-success)" />
                 ) : (
-                  <InfoIcon size={20} color="#9AA7B7" />
+                  <InfoIcon size={20} color="var(--text-secondary)" />
                 )}
               </div>
               <div className="verdict-text-wrap">
@@ -178,7 +178,7 @@ export default function RegressionDiffModal({ scanId, onClose }) {
 
               <div className="diff-m-card">
                 <span className="m-label">Unresolved</span>
-                <span className={`m-val ${diff.summary.unresolvedCount > 0 ? 'text-warning' : ''}`}>
+                <span className={`m-val ${diff.summary.unresolvedCount > 0 ? 'text-high' : ''}`}>
                   {diff.summary.unresolvedCount}
                 </span>
               </div>
@@ -242,7 +242,7 @@ export default function RegressionDiffModal({ scanId, onClose }) {
                     <th style={{ width: '150px' }}>Category</th>
                     <th style={{ width: '110px' }}>Baseline</th>
                     <th style={{ width: '110px' }}>Current</th>
-                    <th style={{ width: '200px' }}>Transition Analysis</th>
+                    <th style={{ width: '220px' }}>Transition Analysis</th>
                   </tr>
                 </thead>
                 <tbody>

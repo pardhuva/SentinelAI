@@ -99,7 +99,7 @@ export default function ApplicationsView({ applications = [], onAppCreated, onSe
       {applications.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">
-            <LayersIcon size={28} color="#9AA7B7" />
+            <LayersIcon size={28} color="var(--text-secondary)" />
           </div>
           <h3 className="empty-state-title">No Applications Configured</h3>
           <p className="empty-state-text">
@@ -108,7 +108,7 @@ export default function ApplicationsView({ applications = [], onAppCreated, onSe
           <button
             type="button"
             className="btn-primary"
-            style={{ marginTop: '0.75rem' }}
+            style={{ marginTop: '0.875rem' }}
             onClick={() => setShowModal(true)}
           >
             Register Application

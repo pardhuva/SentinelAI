@@ -104,7 +104,7 @@ export default function ScanHistoryView({ scans = [], onSelectScan, onBaselineUp
       {scans.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">
-            <HistoryIcon size={28} color="#9AA7B7" />
+            <HistoryIcon size={28} color="var(--text-secondary)" />
           </div>
           <h3 className="empty-state-title">No Scan History</h3>
           <p className="empty-state-text">

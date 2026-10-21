@@ -11,7 +11,7 @@ import {
 export default function Sidebar({
   activeTab,
   setActiveTab,
-  backendStatus,
+  backendStatus = 'online',
   onQuickScan,
   findingsCount = 0,
   scansCount = 0,
@@ -48,7 +48,7 @@ export default function Sidebar({
       {/* Brand Header */}
       <div className="sidebar-brand" onClick={() => setActiveTab('findings')}>
         <div className="brand-logo">
-          <ShieldIcon size={20} color="#E6EDF3" />
+          <ShieldIcon size={18} color="var(--accent-primary)" />
         </div>
         <div className="brand-info">
           <div className="brand-name">
@@ -66,14 +66,14 @@ export default function Sidebar({
           onClick={onQuickScan}
           aria-label="Launch new security scan"
         >
-          <PlayIcon size={14} />
+          <PlayIcon size={13} />
           <span>New Security Scan</span>
         </button>
       </div>
 
       {/* Navigation Links */}
       <nav className="sidebar-nav">
-        <div className="sidebar-nav-section-title">Navigation</div>
+        <div className="sidebar-nav-section-title">Workspace</div>
         <ul className="sidebar-nav-list">
           {navItems.map((item) => {
             const Icon = item.icon;

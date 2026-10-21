@@ -6,9 +6,10 @@ import {
   AlertCircleIcon,
   CheckIcon,
   XIcon,
+  LayersIcon,
 } from './Icons';
 
-export default function ScanLauncher({ applications = [], onScanCompleted }) {
+export default function ScanLauncher({ applications = [], onScanCompleted, onNavigateToApps }) {
   const [selectedAppId, setSelectedAppId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [activeScan, setActiveScan] = useState(null);
@@ -108,82 +109,101 @@ export default function ScanLauncher({ applications = [], onScanCompleted }) {
         </div>
       )}
 
-      {/* Target Selector & Launcher Controls */}
-      <div className="launcher-config-card">
-        <div className="launcher-config-header">
-          <h3 className="launcher-subheading">Assessment Target & Scope</h3>
-        </div>
-
-        <div className="launcher-form-row">
-          <div className="form-group" style={{ flex: 1, margin: 0 }}>
-            <label className="form-label" htmlFor="target-app-select">
-              Target Application
-            </label>
-            <select
-              id="target-app-select"
-              className="form-select"
-              value={selectedAppId}
-              disabled={isScanning || applications.length === 0}
-              onChange={(e) => setSelectedAppId(e.target.value)}
+      {/* When no applications registered, clearly communicate and guide user */}
+      {applications.length === 0 ? (
+        <div className="empty-state" style={{ padding: '3rem 1.5rem' }}>
+          <div className="empty-state-icon">
+            <LayersIcon size={32} color="var(--text-secondary)" />
+          </div>
+          <h3 className="empty-state-title">No Target Applications Registered</h3>
+          <p className="empty-state-text">
+            To evaluate LLM models against adversarial prompt injections, register your application endpoint or initialize the built-in demo targets.
+          </p>
+          {onNavigateToApps && (
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ marginTop: '1rem' }}
+              onClick={onNavigateToApps}
             >
-              {applications.length === 0 ? (
-                <option value="">No applications registered</option>
-              ) : (
-                applications.map((app) => (
+              Configure Target Application
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Target Selector & Launcher Controls */
+        <div className="launcher-config-card">
+          <div className="launcher-config-header">
+            <h3 className="launcher-subheading">Assessment Target & Scope</h3>
+          </div>
+
+          <div className="launcher-form-row">
+            <div className="form-group" style={{ flex: 1, margin: 0 }}>
+              <label className="form-label" htmlFor="target-app-select">
+                Target Application
+              </label>
+              <select
+                id="target-app-select"
+                className="form-select"
+                value={selectedAppId}
+                disabled={isScanning}
+                onChange={(e) => setSelectedAppId(e.target.value)}
+              >
+                {applications.map((app) => (
                   <option key={app._id} value={app._id}>
                     {app.name} — {app.targetConfig?.url}
                   </option>
-                ))
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              className="btn-primary launcher-execute-btn"
+              onClick={handleStartScan}
+              disabled={isScanning || !selectedAppId}
+            >
+              {isScanning ? (
+                <>
+                  <span className="spinner-inline" aria-hidden="true" />
+                  <span>Executing Test Suite...</span>
+                </>
+              ) : (
+                <>
+                  <PlayIcon size={14} />
+                  <span>Run Assessment</span>
+                </>
               )}
-            </select>
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="btn-primary launcher-execute-btn"
-            onClick={handleStartScan}
-            disabled={isScanning || !selectedAppId}
-          >
-            {isScanning ? (
-              <>
-                <span className="spinner-inline" aria-hidden="true" />
-                <span>Executing Test Suite...</span>
-              </>
-            ) : (
-              <>
-                <PlayIcon size={14} />
-                <span>Run Assessment</span>
-              </>
-            )}
-          </button>
+          {/* Selected Target Configuration Summary */}
+          {selectedApp && (
+            <div className="target-specs-grid">
+              <div className="spec-item">
+                <span className="spec-label">Target Endpoint</span>
+                <span className="spec-value spec-mono">
+                  {selectedApp.targetConfig?.url}
+                </span>
+              </div>
+              <div className="spec-item">
+                <span className="spec-label">Canary Token Assertion</span>
+                <span className="spec-value spec-mono">
+                  {selectedApp.targetConfig?.canaryValue
+                    ? `${selectedApp.targetConfig.canaryValue.slice(0, 16)}...`
+                    : 'None configured'}
+                </span>
+              </div>
+              <div className="spec-item">
+                <span className="spec-label">Defense Posture</span>
+                <span className={`spec-badge ${hasMitigation ? 'badge-mitigated' : 'badge-vulnerable'}`}>
+                  {hasMitigation ? 'Mitigation Active (Delimiters Enabled)' : 'Standard / Unmitigated'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Selected Target Configuration Summary */}
-        {selectedApp && (
-          <div className="target-specs-grid">
-            <div className="spec-item">
-              <span className="spec-label">Target Endpoint</span>
-              <span className="spec-value spec-mono">
-                {selectedApp.targetConfig?.url}
-              </span>
-            </div>
-            <div className="spec-item">
-              <span className="spec-label">Canary Token Assertion</span>
-              <span className="spec-value spec-mono">
-                {selectedApp.targetConfig?.canaryValue
-                  ? `${selectedApp.targetConfig.canaryValue.slice(0, 16)}...`
-                  : 'None configured'}
-              </span>
-            </div>
-            <div className="spec-item">
-              <span className="spec-label">Defense Posture</span>
-              <span className={`spec-badge ${hasMitigation ? 'badge-mitigated' : 'badge-vulnerable'}`}>
-                {hasMitigation ? 'Mitigation Active (Headers Set)' : 'Standard / Unmitigated'}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Live Scan Execution Monitor */}
       {activeScan && (
@@ -192,9 +212,9 @@ export default function ScanLauncher({ applications = [], onScanCompleted }) {
             <div className="monitor-status-left">
               <span className="monitor-icon">
                 {activeScan.status === 'completed' ? (
-                  <CheckCircleIcon size={18} color="#3FB950" />
+                  <CheckCircleIcon size={18} color="var(--color-success)" />
                 ) : activeScan.status === 'failed' ? (
-                  <AlertCircleIcon size={18} color="#F85149" />
+                  <AlertCircleIcon size={18} color="var(--color-critical)" />
                 ) : (
                   <span className="spinner-inline" />
                 )}
@@ -218,7 +238,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted }) {
             </div>
           </div>
 
-          {/* Thin Professional Progress Bar */}
+          {/* Thin Forest-Green Progress Bar */}
           <div className="progress-track" role="progressbar" aria-valuenow={activeScan.progress || 0} aria-valuemin={0} aria-valuemax={100}>
             <div
               className={`progress-bar-fill ${activeScan.status === 'failed' ? 'bar-failed' : ''}`}

@@ -176,6 +176,7 @@ export default function App() {
                 <ScanLauncher
                   applications={applications}
                   onScanCompleted={handleScanCompleted}
+                  onNavigateToApps={() => setActiveTab('applications')}
                 />
               )}
 

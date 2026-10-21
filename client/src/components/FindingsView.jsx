@@ -163,7 +163,7 @@ export default function FindingsView({
       {backendStatus === 'offline' ? (
         <div className="empty-state error-state">
           <div className="empty-state-icon">
-            <AlertCircleIcon size={28} color="#F85149" />
+            <AlertCircleIcon size={28} color="var(--color-critical)" />
           </div>
           <h3 className="empty-state-title">Backend Connection Failed</h3>
           <p className="empty-state-text">
@@ -173,7 +173,7 @@ export default function FindingsView({
       ) : scansCount === 0 && findings.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">
-            <InfoIcon size={28} color="#9AA7B7" />
+            <InfoIcon size={28} color="var(--text-secondary)" />
           </div>
           <h3 className="empty-state-title">No Scans Executed Yet</h3>
           <p className="empty-state-text">
@@ -183,7 +183,7 @@ export default function FindingsView({
             <button
               type="button"
               className="btn-primary"
-              style={{ marginTop: '0.75rem' }}
+              style={{ marginTop: '0.875rem' }}
               onClick={onLaunchScan}
             >
               Launch First Scan
@@ -193,7 +193,7 @@ export default function FindingsView({
       ) : scansCount > 0 && findings.length === 0 ? (
         <div className="empty-state clean-state">
           <div className="empty-state-icon">
-            <CheckCircleIcon size={28} color="#3FB950" />
+            <CheckCircleIcon size={28} color="var(--color-success)" />
           </div>
           <h3 className="empty-state-title">Zero Security Vulnerabilities Detected</h3>
           <p className="empty-state-text">
@@ -203,7 +203,7 @@ export default function FindingsView({
       ) : filteredFindings.length === 0 ? (
         <div className="empty-state filtered-state">
           <div className="empty-state-icon">
-            <FilterIcon size={28} color="#9AA7B7" />
+            <FilterIcon size={28} color="var(--text-secondary)" />
           </div>
           <h3 className="empty-state-title">No Findings Match Active Filters</h3>
           <p className="empty-state-text">
@@ -212,7 +212,7 @@ export default function FindingsView({
           <button
             type="button"
             className="btn-secondary"
-            style={{ marginTop: '0.75rem' }}
+            style={{ marginTop: '0.875rem' }}
             onClick={resetFilters}
           >
             Clear Active Filters
@@ -229,7 +229,7 @@ export default function FindingsView({
                 <th>Finding & Category</th>
                 <th style={{ width: '150px' }}>Test Case ID</th>
                 <th style={{ width: '180px' }}>Target Application</th>
-                <th style={{ width: '170px' }}>Status Triage</th>
+                <th style={{ width: '220px' }}>Status Triage</th>
               </tr>
             </thead>
             <tbody>
@@ -283,7 +283,7 @@ export default function FindingsView({
                       </td>
 
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div className="status-triage-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <div className="status-triage-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                           {renderStatusBadge(finding.status)}
                           <select
                             className="form-select status-select"
@@ -326,7 +326,7 @@ export default function FindingsView({
                                   >
                                     {isCopied ? (
                                       <>
-                                        <CheckIcon size={12} color="#3FB950" />
+                                        <CheckIcon size={12} color="var(--color-success)" />
                                         <span>Copied</span>
                                       </>
                                     ) : (
