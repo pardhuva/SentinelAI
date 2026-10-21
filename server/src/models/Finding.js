@@ -51,9 +51,13 @@ const FindingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['open', 'resolved', 'acknowledged'],
+      enum: ['open', 'investigating', 'resolved', 'acknowledged', 'false_positive'],
       default: 'open',
       index: true,
+    },
+    notes: {
+      type: String,
+      default: '',
     },
   },
   {

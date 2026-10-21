@@ -1,0 +1,24 @@
+{
+  "name": "sentinelai",
+  "version": "0.1.0",
+  "description": "Developer-focused LLM Security Testing & Regression Platform",
+  "private": true,
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev:target": "npm --prefix demo-target start",
+    "test:server": "npm --prefix server test",
+    "test:target": "npm --prefix demo-target test",
+    "test": "npm run test:server && npm run test:target",
+    "build:client": "npm --prefix client run build"
+  },
+  "keywords": [
+    "llm-security",
+    "prompt-injection",
+    "evaluations",
+    "vulnerability-scanner",
+    "regression-testing"
+  ],
+  "author": "Pardhu",
+  "license": "MIT"
+}

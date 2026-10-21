@@ -6,6 +6,7 @@ const config = require('./config/env');
 const healthRoutes = require('./routes/health.routes');
 const applicationRoutes = require('./routes/application.routes');
 const scanRoutes = require('./routes/scan.routes');
+const findingRoutes = require('./routes/finding.routes');
 const notFoundHandler = require('./middleware/notFoundHandler');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -33,6 +34,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/api/health', healthRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/scans', scanRoutes);
+app.use('/api/findings', findingRoutes);
 
 // Catch-all for undefined routes
 app.use(notFoundHandler);
