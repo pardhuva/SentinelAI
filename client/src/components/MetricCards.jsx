@@ -1,60 +1,91 @@
 import React from 'react';
+import {
+  AlertCircleIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  HistoryIcon,
+} from './Icons';
 
 export default function MetricCards({ summary, totalScans }) {
   const criticalCount = summary?.bySeverity?.critical || 0;
   const highCount = summary?.bySeverity?.high || 0;
+  const mediumCount = summary?.bySeverity?.medium || 0;
+  const highMediumCount = highCount + mediumCount;
   const totalFindings = summary?.total || 0;
   const resolvedCount = summary?.byStatus?.resolved || 0;
 
-  const resolutionRate = totalFindings > 0 ? Math.round((resolvedCount / totalFindings) * 100) : 100;
+  const resolutionRate =
+    totalFindings > 0 ? Math.round((resolvedCount / totalFindings) * 100) : 100;
 
   return (
-    <div className="kpi-grid">
-      <div className="kpi-card">
-        <div className="kpi-info">
-          <h4>Total Scans Executed</h4>
-          <div className="kpi-number" style={{ color: '#06B6D4' }}>
-            {totalScans}
-          </div>
+    <div className="metrics-strip" role="region" aria-label="Security Metrics Summary">
+      <div className="metric-item">
+        <div className="metric-header">
+          <span className="metric-icon-wrap neutral">
+            <HistoryIcon size={14} />
+          </span>
+          <span className="metric-label">Total Scans</span>
         </div>
-        <div className="kpi-icon" style={{ background: 'rgba(6, 182, 212, 0.15)', color: '#06B6D4' }}>
-          🔍
+        <div className="metric-value-wrap">
+          <span className="metric-value">{totalScans}</span>
+          <span className="metric-meta">executed</span>
         </div>
       </div>
 
-      <div className="kpi-card">
-        <div className="kpi-info">
-          <h4>Critical Vulnerabilities</h4>
-          <div className="kpi-number" style={{ color: '#F43F5E' }}>
+      <div className="metric-divider" aria-hidden="true" />
+
+      <div className="metric-item">
+        <div className="metric-header">
+          <span className="metric-icon-wrap critical">
+            <AlertCircleIcon size={14} />
+          </span>
+          <span className="metric-label">Critical Findings</span>
+        </div>
+        <div className="metric-value-wrap">
+          <span className={`metric-value ${criticalCount > 0 ? 'text-critical' : ''}`}>
             {criticalCount}
-          </div>
-        </div>
-        <div className="kpi-icon" style={{ background: 'rgba(244, 63, 94, 0.15)', color: '#F43F5E' }}>
-          🚨
-        </div>
-      </div>
-
-      <div className="kpi-card">
-        <div className="kpi-info">
-          <h4>High / Medium Severity</h4>
-          <div className="kpi-number" style={{ color: '#F59E0B' }}>
-            {highCount + (summary?.bySeverity?.medium || 0)}
-          </div>
-        </div>
-        <div className="kpi-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' }}>
-          ⚠️
+          </span>
+          {criticalCount > 0 ? (
+            <span className="metric-pill pill-critical">Action Required</span>
+          ) : (
+            <span className="metric-meta">0 active</span>
+          )}
         </div>
       </div>
 
-      <div className="kpi-card">
-        <div className="kpi-info">
-          <h4>Remediation Rate</h4>
-          <div className="kpi-number" style={{ color: '#10B981' }}>
-            {resolutionRate}%
-          </div>
+      <div className="metric-divider" aria-hidden="true" />
+
+      <div className="metric-item">
+        <div className="metric-header">
+          <span className="metric-icon-wrap high-medium">
+            <AlertTriangleIcon size={14} />
+          </span>
+          <span className="metric-label">High & Medium</span>
         </div>
-        <div className="kpi-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>
-          🛡️
+        <div className="metric-value-wrap">
+          <span className={`metric-value ${highMediumCount > 0 ? 'text-warning' : ''}`}>
+            {highMediumCount}
+          </span>
+          <span className="metric-meta">
+            ({highCount} high / {mediumCount} med)
+          </span>
+        </div>
+      </div>
+
+      <div className="metric-divider" aria-hidden="true" />
+
+      <div className="metric-item">
+        <div className="metric-header">
+          <span className="metric-icon-wrap success">
+            <CheckCircleIcon size={14} />
+          </span>
+          <span className="metric-label">Remediation Rate</span>
+        </div>
+        <div className="metric-value-wrap">
+          <span className="metric-value text-success">{resolutionRate}%</span>
+          <span className="metric-meta">
+            {resolvedCount} of {totalFindings} resolved
+          </span>
         </div>
       </div>
     </div>

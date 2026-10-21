@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { triggerScan, fetchScan, fetchScanResults } from '../api/client';
+import {
+  PlayIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+  CheckIcon,
+  XIcon,
+} from './Icons';
 
-export default function ScanLauncher({ applications, onScanCompleted }) {
+export default function ScanLauncher({ applications = [], onScanCompleted }) {
   const [selectedAppId, setSelectedAppId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [activeScan, setActiveScan] = useState(null);
@@ -63,7 +70,6 @@ export default function ScanLauncher({ applications, onScanCompleted }) {
     setScanResults([]);
 
     try {
-      // Trigger scan (asynchronous BullMQ background job)
       const initiatedScan = await triggerScan({
         applicationId: selectedAppId,
         triggerSource: 'manual',
@@ -77,184 +83,227 @@ export default function ScanLauncher({ applications, onScanCompleted }) {
     }
   };
 
+  const hasMitigation =
+    selectedApp?.targetConfig?.headers?.['x-sentinel-mitigation'] === 'true' ||
+    Boolean(selectedApp?.targetConfig?.headers?.['x-sentinel-mitigation']);
+
   return (
-    <div className="card-panel">
+    <div className="section-panel" role="region" aria-label="Security Assessment Launcher">
+      {/* Panel Header */}
       <div className="panel-header">
-        <div>
-          <h2 className="panel-title">
-            <span>⚡</span> Automated Security Assessment Launcher
-          </h2>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Execute multi-vector adversarial evaluations (prompt injection, token leakage, instruction override).
+        <div className="panel-title-group">
+          <div className="panel-title-row">
+            <h2 className="panel-title">Security Assessment Launcher</h2>
+          </div>
+          <p className="panel-description">
+            Run automated adversarial test suites against registered AI endpoints to assess prompt injection and secret leakage.
           </p>
         </div>
       </div>
 
       {errorMsg && (
-        <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '0.75rem 1rem', color: '#F87171', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
-          {errorMsg}
+        <div className="alert-banner alert-banner-error" role="alert">
+          <AlertCircleIcon size={16} />
+          <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Target Application Selector */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'end', marginBottom: '1.5rem' }}>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label className="form-label">Select Target Application</label>
-          <select
-            className="form-select"
-            value={selectedAppId}
-            disabled={isScanning || applications.length === 0}
-            onChange={(e) => setSelectedAppId(e.target.value)}
+      {/* Target Selector & Launcher Controls */}
+      <div className="launcher-config-card">
+        <div className="launcher-config-header">
+          <h3 className="launcher-subheading">Assessment Target & Scope</h3>
+        </div>
+
+        <div className="launcher-form-row">
+          <div className="form-group" style={{ flex: 1, margin: 0 }}>
+            <label className="form-label" htmlFor="target-app-select">
+              Target Application
+            </label>
+            <select
+              id="target-app-select"
+              className="form-select"
+              value={selectedAppId}
+              disabled={isScanning || applications.length === 0}
+              onChange={(e) => setSelectedAppId(e.target.value)}
+            >
+              {applications.length === 0 ? (
+                <option value="">No applications registered</option>
+              ) : (
+                applications.map((app) => (
+                  <option key={app._id} value={app._id}>
+                    {app.name} — {app.targetConfig?.url}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="btn-primary launcher-execute-btn"
+            onClick={handleStartScan}
+            disabled={isScanning || !selectedAppId}
           >
-            {applications.map((app) => (
-              <option key={app._id} value={app._id}>
-                {app.name} ({app.targetConfig?.url})
-              </option>
-            ))}
-          </select>
+            {isScanning ? (
+              <>
+                <span className="spinner-inline" aria-hidden="true" />
+                <span>Executing Test Suite...</span>
+              </>
+            ) : (
+              <>
+                <PlayIcon size={14} />
+                <span>Run Assessment</span>
+              </>
+            )}
+          </button>
         </div>
 
-        <button
-          className="btn-primary"
-          onClick={handleStartScan}
-          disabled={isScanning || !selectedAppId}
-          style={{ height: '42px', minWidth: '160px', justifyContent: 'center' }}
-        >
-          {isScanning ? (
-            <>
-              <span className="spinner" style={{ width: 14, height: 14, border: '2px solid #FFF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
-              Scanning...
-            </>
-          ) : (
-            <>
-              <span>🚀</span> Start Scan
-            </>
-          )}
-        </button>
+        {/* Selected Target Configuration Summary */}
+        {selectedApp && (
+          <div className="target-specs-grid">
+            <div className="spec-item">
+              <span className="spec-label">Target Endpoint</span>
+              <span className="spec-value spec-mono">
+                {selectedApp.targetConfig?.url}
+              </span>
+            </div>
+            <div className="spec-item">
+              <span className="spec-label">Canary Token Assertion</span>
+              <span className="spec-value spec-mono">
+                {selectedApp.targetConfig?.canaryValue
+                  ? `${selectedApp.targetConfig.canaryValue.slice(0, 16)}...`
+                  : 'None configured'}
+              </span>
+            </div>
+            <div className="spec-item">
+              <span className="spec-label">Defense Posture</span>
+              <span className={`spec-badge ${hasMitigation ? 'badge-mitigated' : 'badge-vulnerable'}`}>
+                {hasMitigation ? 'Mitigation Active (Headers Set)' : 'Standard / Unmitigated'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Target Details Badge */}
-      {selectedApp && (
-        <div style={{ background: '#0B1120', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '0.875rem 1.25rem', display: 'flex', gap: '2rem', flexWrap: 'wrap', marginBottom: '1.5rem', fontSize: '0.8125rem' }}>
-          <div>
-            <span style={{ color: 'var(--text-muted)' }}>Target Endpoint: </span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)' }}>
-              {selectedApp.targetConfig?.url}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: 'var(--text-muted)' }}>Canary Token: </span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: '#FBBF24' }}>
-              {selectedApp.targetConfig?.canaryValue ? `${selectedApp.targetConfig.canaryValue.slice(0, 14)}...` : 'None'}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: 'var(--text-muted)' }}>Defense Mode: </span>
-            <span style={{ color: selectedApp.targetConfig?.headers?.has?.('x-sentinel-mitigation') || selectedApp.targetConfig?.headers?.['x-sentinel-mitigation'] ? '#10B981' : '#F43F5E', fontWeight: 600 }}>
-              {selectedApp.targetConfig?.headers?.['x-sentinel-mitigation'] ? 'Mitigation Active' : 'Standard / Vulnerable'}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Live Scan Execution Monitor */}
       {activeScan && (
-        <div style={{ background: '#0B1120', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1rem' }}>
-                {activeScan.status === 'completed' ? '✅' : activeScan.status === 'failed' ? '❌' : '🔄'}
+        <div className="scan-monitor-panel">
+          <div className="monitor-header">
+            <div className="monitor-status-left">
+              <span className="monitor-icon">
+                {activeScan.status === 'completed' ? (
+                  <CheckCircleIcon size={18} color="#3FB950" />
+                ) : activeScan.status === 'failed' ? (
+                  <AlertCircleIcon size={18} color="#F85149" />
+                ) : (
+                  <span className="spinner-inline" />
+                )}
               </span>
-              <span style={{ fontWeight: 600, color: '#FFF' }}>
-                {activeScan.status === 'completed'
-                  ? 'Scan Completed Successfully'
-                  : activeScan.status === 'failed'
-                  ? 'Scan Execution Failed'
-                  : 'Running Security Test Suite (BullMQ Worker)...'}
-              </span>
-            </div>
-            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary-cyan)' }}>
-              {activeScan.progress || 0}%
-            </span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="progress-container" style={{ marginBottom: '1.25rem' }}>
-            <div className="progress-fill" style={{ width: `${activeScan.progress || 0}%` }} />
-          </div>
-
-          {/* Counters */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', textAlign: 'center' }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.75rem', borderRadius: '8px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total Tests</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{activeScan.totalTests || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '0.75rem', borderRadius: '8px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#10B981' }}>Passed</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#10B981' }}>{activeScan.passedCount || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(244, 63, 94, 0.05)', padding: '0.75rem', borderRadius: '8px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#F43F5E' }}>Vulnerabilities</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#F43F5E' }}>{activeScan.failedCount || 0}</div>
-            </div>
-            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.75rem', borderRadius: '8px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Duration</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                {activeScan.durationMs ? `${(activeScan.durationMs / 1000).toFixed(2)}s` : 'Active'}
+              <div className="monitor-status-text">
+                <span className="monitor-title">
+                  {activeScan.status === 'completed'
+                    ? 'Security Assessment Completed'
+                    : activeScan.status === 'failed'
+                    ? 'Assessment Execution Failed'
+                    : 'Running Adversarial Security Vectors...'}
+                </span>
+                <span className="monitor-sub">
+                  Scan ID: <code className="mono-sub">{activeScan._id}</code>
+                </span>
               </div>
+            </div>
+
+            <div className="monitor-progress-num">
+              {activeScan.progress || 0}%
+            </div>
+          </div>
+
+          {/* Thin Professional Progress Bar */}
+          <div className="progress-track" role="progressbar" aria-valuenow={activeScan.progress || 0} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className={`progress-bar-fill ${activeScan.status === 'failed' ? 'bar-failed' : ''}`}
+              style={{ width: `${activeScan.progress || 0}%` }}
+            />
+          </div>
+
+          {/* Telemetry Metrics */}
+          <div className="monitor-metrics-row">
+            <div className="monitor-metric">
+              <span className="m-label">Total Tests</span>
+              <span className="m-val">{activeScan.totalTests || 0}</span>
+            </div>
+            <div className="monitor-metric">
+              <span className="m-label">Passed</span>
+              <span className="m-val text-success">{activeScan.passedCount || 0}</span>
+            </div>
+            <div className="monitor-metric">
+              <span className="m-label">Vulnerabilities</span>
+              <span className={`m-val ${activeScan.failedCount > 0 ? 'text-critical' : ''}`}>
+                {activeScan.failedCount || 0}
+              </span>
+            </div>
+            <div className="monitor-metric">
+              <span className="m-label">Duration</span>
+              <span className="m-val">
+                {activeScan.durationMs ? `${(activeScan.durationMs / 1000).toFixed(2)}s` : 'Active'}
+              </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Individual Test Results Breakdown Table */}
+      {/* Evaluation Results Breakdown Table */}
       {scanResults.length > 0 && (
-        <div>
-          <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
-            Evaluation Breakdown by Security Vector:
-          </h3>
-          <div className="data-table-wrapper">
+        <div className="scan-results-container">
+          <div className="results-header">
+            <h3 className="launcher-subheading">Security Vector Evaluation Results</h3>
+            <span className="results-count-meta">{scanResults.length} test assertions</span>
+          </div>
+
+          <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Test ID</th>
-                  <th>Test Name</th>
-                  <th>Category</th>
-                  <th>Severity</th>
-                  <th>Verdict</th>
-                  <th>Latency</th>
+                  <th style={{ width: '130px' }}>Test ID</th>
+                  <th>Test Vector</th>
+                  <th style={{ width: '180px' }}>Category</th>
+                  <th style={{ width: '100px' }}>Severity</th>
+                  <th style={{ width: '110px' }}>Verdict</th>
+                  <th style={{ width: '90px' }}>Latency</th>
                 </tr>
               </thead>
               <tbody>
-                {scanResults.map((r) => (
-                  <tr key={r._id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      {r.testCaseId}
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{r.testCaseName}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{r.category}</td>
-                    <td>
-                      <span className={`badge-severity badge-${r.severity?.toLowerCase() || 'low'}`}>
-                        {r.severity}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: '0.75rem',
-                          textTransform: 'uppercase',
-                          color: r.verdict === 'passed' ? '#10B981' : '#F43F5E',
-                        }}
-                      >
-                        {r.verdict === 'passed' ? '✓ Passed' : '✗ Failed'}
-                      </span>
-                    </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
-                      {r.latencyMs}ms
-                    </td>
-                  </tr>
-                ))}
+                {scanResults.map((r) => {
+                  const isPassed = r.verdict === 'passed';
+                  return (
+                    <tr key={r._id || r.testCaseId}>
+                      <td>
+                        <span className="finding-mono-id">{r.testCaseId}</span>
+                      </td>
+                      <td>
+                        <span className="test-name-text">{r.testCaseName}</span>
+                      </td>
+                      <td>
+                        <span className="finding-category-pill">{r.category}</span>
+                      </td>
+                      <td>
+                        <span className={`badge-severity badge-sev-${r.severity?.toLowerCase() || 'low'}`}>
+                          <span className="severity-dot" aria-hidden="true" />
+                          {r.severity}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`verdict-pill ${isPassed ? 'verdict-passed' : 'verdict-failed'}`}>
+                          {isPassed ? <CheckIcon size={12} /> : <XIcon size={12} />}
+                          <span>{isPassed ? 'Passed' : 'Failed'}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="mono-latency">{r.latencyMs}ms</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import MetricCards from './components/MetricCards';
 import FindingsView from './components/FindingsView';
@@ -22,6 +23,7 @@ export default function App() {
   const [summary, setSummary] = useState(null);
   const [scans, setScans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load all initial data from backend
   const loadDashboardData = useCallback(async () => {
@@ -78,6 +80,7 @@ export default function App() {
       setBackendStatus('offline');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -85,12 +88,17 @@ export default function App() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  const handleScanCompleted = async (completedScan) => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadDashboardData();
+  };
+
+  const handleScanCompleted = async () => {
     // Refresh findings, summary, and scans
     const [findingsData, summaryData, scansData] = await Promise.all([
-      fetchFindings(),
-      fetchFindingsSummary(),
-      fetchScans(),
+      fetchFindings().catch(() => []),
+      fetchFindingsSummary().catch(() => null),
+      fetchScans().catch(() => []),
     ]);
 
     setFindings(findingsData);
@@ -110,66 +118,86 @@ export default function App() {
     setApplications((prev) => [newApp, ...prev]);
   };
 
-  const handleSelectForScan = () => {
+  const handleSelectForScan = (_appId) => {
     setActiveTab('launcher');
   };
 
-  const handleSelectScanFindings = () => {
+  const handleSelectScanFindings = (_scanId) => {
     setActiveTab('findings');
   };
 
   return (
-    <div className="app-container">
-      <Header
+    <div className="app-shell">
+      {/* Persistent Left Navigation Sidebar */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         backendStatus={backendStatus}
         onQuickScan={() => setActiveTab('launcher')}
+        findingsCount={findings.length}
+        scansCount={scans.length}
       />
 
-      <main className="main-content">
-        {/* Top-Level KPI Summary */}
-        <MetricCards summary={summary} totalScans={scans.length} />
+      {/* Main Application Area */}
+      <div className="app-main">
+        {/* Contextual Topbar */}
+        <Header
+          activeTab={activeTab}
+          backendStatus={backendStatus}
+          onRefresh={handleRefresh}
+          onQuickScan={() => setActiveTab('launcher')}
+          isRefreshing={isRefreshing}
+        />
 
-        {/* Tab Views */}
-        {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
-            Loading SentinelAI Security Intelligence Engine...
-          </div>
-        ) : (
-          <>
-            {activeTab === 'findings' && (
-              <FindingsView
-                findings={findings}
-                onFindingUpdated={handleFindingUpdated}
-              />
-            )}
+        {/* Content Body */}
+        <main className="app-content-body">
+          {/* Top-Level Compact KPI Telemetry Strip */}
+          <MetricCards summary={summary} totalScans={scans.length} />
 
-            {activeTab === 'launcher' && (
-              <ScanLauncher
-                applications={applications}
-                onScanCompleted={handleScanCompleted}
-              />
-            )}
+          {/* Active View */}
+          {isLoading ? (
+            <div className="loading-container">
+              <span className="spinner-inline" />
+              <span>Initializing SentinelAI Security Intelligence Engine...</span>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'findings' && (
+                <FindingsView
+                  findings={findings}
+                  onFindingUpdated={handleFindingUpdated}
+                  scansCount={scans.length}
+                  backendStatus={backendStatus}
+                  onLaunchScan={() => setActiveTab('launcher')}
+                />
+              )}
 
-            {activeTab === 'applications' && (
-              <ApplicationsView
-                applications={applications}
-                onAppCreated={handleAppCreated}
-                onSelectForScan={handleSelectForScan}
-              />
-            )}
+              {activeTab === 'launcher' && (
+                <ScanLauncher
+                  applications={applications}
+                  onScanCompleted={handleScanCompleted}
+                />
+              )}
 
-            {activeTab === 'history' && (
-              <ScanHistoryView
-                scans={scans}
-                onSelectScan={handleSelectScanFindings}
-                onBaselineUpdated={loadDashboardData}
-              />
-            )}
-          </>
-        )}
-      </main>
+              {activeTab === 'applications' && (
+                <ApplicationsView
+                  applications={applications}
+                  onAppCreated={handleAppCreated}
+                  onSelectForScan={handleSelectForScan}
+                />
+              )}
+
+              {activeTab === 'history' && (
+                <ScanHistoryView
+                  scans={scans}
+                  onSelectScan={handleSelectScanFindings}
+                  onBaselineUpdated={loadDashboardData}
+                />
+              )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

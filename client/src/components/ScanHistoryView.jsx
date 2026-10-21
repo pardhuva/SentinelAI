@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { setApplicationBaseline } from '../api/client';
 import RegressionDiffModal from './RegressionDiffModal';
+import {
+  HistoryIcon,
+  AlertCircleIcon,
+  AlertTriangleIcon,
+  CheckIcon,
+  GitDiffIcon,
+} from './Icons';
 
-export default function ScanHistoryView({ scans, onSelectScan, onBaselineUpdated }) {
+export default function ScanHistoryView({ scans = [], onSelectScan, onBaselineUpdated }) {
   const [selectedScanForDiff, setSelectedScanForDiff] = useState(null);
   const [settingBaselineId, setSettingBaselineId] = useState(null);
 
@@ -20,78 +27,103 @@ export default function ScanHistoryView({ scans, onSelectScan, onBaselineUpdated
     }
   };
 
-  const getStatusBadge = (status) => {
+  const renderStatusBadge = (status) => {
     switch (status) {
       case 'completed':
-        return <span className="badge-status badge-status-resolved">✓ Completed</span>;
+        return (
+          <span className="verdict-pill verdict-passed">
+            <CheckIcon size={12} />
+            <span>Completed</span>
+          </span>
+        );
       case 'running':
-        return <span className="badge-status badge-status-investigating">⏳ Running</span>;
+        return (
+          <span className="verdict-pill verdict-running">
+            <span className="spinner-inline" />
+            <span>Running</span>
+          </span>
+        );
       case 'failed':
-        return <span className="badge-status badge-status-open">✗ Failed</span>;
+        return (
+          <span className="verdict-pill verdict-failed">
+            <AlertCircleIcon size={12} />
+            <span>Failed</span>
+          </span>
+        );
       default:
-        return <span className="badge-status badge-status-false-positive">Pending</span>;
+        return (
+          <span className="verdict-pill verdict-neutral">
+            <span>Pending</span>
+          </span>
+        );
     }
   };
 
-  const getRegressionBadge = (verdict) => {
+  const renderRegressionBadge = (verdict) => {
     switch (verdict) {
       case 'REGRESSED':
         return (
-          <span style={{ color: '#F43F5E', fontWeight: 700, fontSize: '0.725rem', background: 'rgba(244, 63, 94, 0.15)', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-            🚨 REGRESSED
+          <span className="diff-badge badge-regression">
+            <AlertTriangleIcon size={12} />
+            <span>Regressed</span>
           </span>
         );
       case 'IMPROVED':
         return (
-          <span style={{ color: '#10B981', fontWeight: 700, fontSize: '0.725rem', background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-            🎉 IMPROVED
+          <span className="diff-badge badge-fix">
+            <CheckIcon size={12} />
+            <span>Improved</span>
           </span>
         );
       case 'UNCHANGED':
         return (
-          <span style={{ color: '#94A3B8', fontSize: '0.725rem', background: 'rgba(148, 163, 184, 0.1)', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-            UNCHANGED
+          <span className="diff-badge badge-neutral">
+            <span>Unchanged</span>
           </span>
         );
       default:
-        return <span style={{ color: 'var(--text-muted)', fontSize: '0.725rem' }}>—</span>;
+        return <span className="text-muted">—</span>;
     }
   };
 
   return (
-    <div className="card-panel">
+    <div className="section-panel" role="region" aria-label="Security Scan Audit History">
+      {/* Panel Header */}
       <div className="panel-header">
-        <div>
-          <h2 className="panel-title">
-            <span>📜</span> Security Scan Audit Trail & Regression Analysis
-          </h2>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Historical record of all test runs, baselines, and cross-revision regression evaluations.
+        <div className="panel-title-group">
+          <div className="panel-title-row">
+            <h2 className="panel-title">Scan History & Audit Trail</h2>
+            <span className="panel-count-badge">{scans.length} executions</span>
+          </div>
+          <p className="panel-description">
+            Complete audit trail of all adversarial evaluations, designated security baselines, and cross-revision verdicts.
           </p>
         </div>
       </div>
 
       {scans.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📜</div>
-          <h3 style={{ fontSize: '1.125rem', color: 'var(--text-primary)' }}>No Scan History Yet</h3>
-          <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Launch a security assessment to populate execution telemetry.
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <HistoryIcon size={28} color="#9AA7B7" />
+          </div>
+          <h3 className="empty-state-title">No Scan History</h3>
+          <p className="empty-state-text">
+            Execute a security assessment to begin accumulating scan telemetry and regression data.
           </p>
         </div>
       ) : (
-        <div className="data-table-wrapper">
+        <div className="table-responsive">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Target Application</th>
-                <th>Status</th>
-                <th>Regression Verdict</th>
-                <th>Tests</th>
-                <th>Passed / Failed</th>
-                <th>Duration</th>
-                <th>Executed At</th>
-                <th>Actions</th>
+                <th style={{ width: '120px' }}>Status</th>
+                <th style={{ width: '130px' }}>Regression</th>
+                <th style={{ width: '80px' }}>Tests</th>
+                <th style={{ width: '120px' }}>Pass / Fail</th>
+                <th style={{ width: '90px' }}>Duration</th>
+                <th style={{ width: '170px' }}>Executed</th>
+                <th style={{ width: '220px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -100,73 +132,86 @@ export default function ScanHistoryView({ scans, onSelectScan, onBaselineUpdated
                 const isBaseline = scan.isBaseline;
 
                 return (
-                  <tr key={scan._id} style={{ background: isBaseline ? 'rgba(6, 182, 212, 0.04)' : 'transparent' }}>
+                  <tr
+                    key={scan._id}
+                    className={`history-row ${isBaseline ? 'row-baseline' : ''}`}
+                  >
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontWeight: 600 }}>
+                      <div className="app-name-baseline-group">
+                        <span className="scan-app-name">
                           {scan.applicationId?.name || 'Acme HR Assistant'}
                         </span>
                         {isBaseline && (
-                          <span
-                            style={{
-                              fontSize: '0.65rem',
-                              fontWeight: 800,
-                              background: 'rgba(6, 182, 212, 0.2)',
-                              color: 'var(--primary-cyan)',
-                              border: '1px solid rgba(6, 182, 212, 0.4)',
-                              padding: '0.1rem 0.4rem',
-                              borderRadius: '4px',
-                            }}
-                          >
+                          <span className="baseline-tag" title="Designated application baseline">
                             BASELINE
                           </span>
                         )}
                       </div>
                     </td>
-                    <td>{getStatusBadge(scan.status)}</td>
-                    <td>{getRegressionBadge(scan.regressionSummary?.verdict)}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{scan.totalTests || 0}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>
-                      <span style={{ color: '#10B981' }}>{scan.passedCount || 0}</span> /{' '}
-                      <span style={{ color: scan.failedCount > 0 ? '#F43F5E' : 'inherit' }}>
-                        {scan.failedCount || 0}
+
+                    <td>{renderStatusBadge(scan.status)}</td>
+
+                    <td>{renderRegressionBadge(scan.regressionSummary?.verdict)}</td>
+
+                    <td>
+                      <span className="mono-num">{scan.totalTests || 0}</span>
+                    </td>
+
+                    <td>
+                      <span className="pass-fail-ratio">
+                        <span className="text-success">{scan.passedCount || 0}</span>
+                        <span className="ratio-sep">/</span>
+                        <span className={scan.failedCount > 0 ? 'text-critical' : 'text-muted'}>
+                          {scan.failedCount || 0}
+                        </span>
                       </span>
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>
-                      {scan.durationMs ? `${(scan.durationMs / 1000).toFixed(2)}s` : '—'}
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                      {scan.createdAt ? new Date(scan.createdAt).toLocaleString() : '—'}
-                    </td>
+
                     <td>
-                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <span className="mono-latency">
+                        {scan.durationMs ? `${(scan.durationMs / 1000).toFixed(2)}s` : '—'}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span className="timestamp-text">
+                        {scan.createdAt
+                          ? new Date(scan.createdAt).toLocaleString(undefined, {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })
+                          : '—'}
+                      </span>
+                    </td>
+
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="row-actions-group">
                         <button
-                          className="btn-secondary"
-                          style={{ padding: '0.3rem 0.6rem', fontSize: '0.725rem' }}
+                          type="button"
+                          className="btn-table-action"
                           onClick={() => onSelectScan(scan._id)}
+                          title="View findings for this scan"
                         >
                           Findings
                         </button>
 
                         <button
-                          className="btn-secondary"
-                          style={{ padding: '0.3rem 0.6rem', fontSize: '0.725rem' }}
+                          type="button"
+                          className="btn-table-action"
                           onClick={() => setSelectedScanForDiff(scan._id)}
+                          title="Inspect regression diff vs baseline"
                         >
-                          Diff
+                          <GitDiffIcon size={12} />
+                          <span>Diff</span>
                         </button>
 
                         {!isBaseline && scan.status === 'completed' && (
                           <button
-                            className="btn-secondary"
-                            style={{
-                              padding: '0.3rem 0.6rem',
-                              fontSize: '0.725rem',
-                              color: 'var(--primary-cyan)',
-                              borderColor: 'rgba(6, 182, 212, 0.3)',
-                            }}
+                            type="button"
+                            className="btn-table-action btn-set-baseline"
                             disabled={settingBaselineId === scan._id}
                             onClick={() => handleSetBaseline(appId, scan._id)}
+                            title="Set this scan as the regression baseline"
                           >
                             {settingBaselineId === scan._id ? 'Saving...' : 'Set Baseline'}
                           </button>

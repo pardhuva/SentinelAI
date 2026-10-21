@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { fetchScanRegression } from '../api/client';
+import {
+  GitDiffIcon,
+  XIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  InfoIcon,
+  CheckIcon,
+  AlertCircleIcon,
+} from './Icons';
 
 export default function RegressionDiffModal({ scanId, onClose }) {
   const [diff, setDiff] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [filterType, setFilterType] = useState('ALL');
 
   useEffect(() => {
     async function loadDiff() {
@@ -21,243 +31,252 @@ export default function RegressionDiffModal({ scanId, onClose }) {
     loadDiff();
   }, [scanId]);
 
-  const getDiffBadge = (type) => {
+  const renderDiffBadge = (type) => {
     switch (type) {
       case 'REGRESSION':
         return (
-          <span
-            style={{
-              background: 'rgba(244, 63, 94, 0.2)',
-              color: '#F43F5E',
-              border: '1px solid rgba(244, 63, 94, 0.4)',
-              fontWeight: 800,
-              fontSize: '0.725rem',
-              padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-              textTransform: 'uppercase',
-            }}
-          >
-            ⚠️ REGRESSION
+          <span className="diff-badge badge-regression">
+            <AlertTriangleIcon size={12} />
+            <span>Regression (Pass → Fail)</span>
           </span>
         );
       case 'FIX':
         return (
-          <span
-            style={{
-              background: 'rgba(16, 185, 129, 0.2)',
-              color: '#10B981',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
-              fontWeight: 800,
-              fontSize: '0.725rem',
-              padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-              textTransform: 'uppercase',
-            }}
-          >
-            ✓ FIXED
+          <span className="diff-badge badge-fix">
+            <CheckIcon size={12} />
+            <span>Fixed (Fail → Pass)</span>
           </span>
         );
       case 'UNRESOLVED':
         return (
-          <span
-            style={{
-              background: 'rgba(245, 158, 11, 0.15)',
-              color: '#F59E0B',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              fontWeight: 700,
-              fontSize: '0.725rem',
-              padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-            }}
-          >
-            UNRESOLVED
+          <span className="diff-badge badge-unresolved">
+            <span>Unresolved (Fail → Fail)</span>
           </span>
         );
       default:
         return (
-          <span
-            style={{
-              background: 'rgba(148, 163, 184, 0.15)',
-              color: '#94A3B8',
-              fontSize: '0.725rem',
-              padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-            }}
-          >
-            CONSISTENT
+          <span className="diff-badge badge-neutral">
+            <span>Consistent (Pass → Pass)</span>
           </span>
         );
     }
   };
 
+  const filteredDetails = diff?.details
+    ? diff.details.filter((d) => {
+        if (filterType === 'ALL') return true;
+        return d.diffType === filterType;
+      })
+    : [];
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="diff-modal-title"
+    >
       <div
-        className="modal-card"
-        style={{ maxWidth: '850px', maxHeight: '85vh', overflowY: 'auto' }}
+        className="modal-dialog modal-dialog-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>🔍</span> Baseline Security Regression Diff
-            </h3>
-            <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-              Target Scan: {scanId}
-            </span>
+        {/* Header */}
+        <div className="modal-header">
+          <div className="diff-title-group">
+            <div className="diff-title-row">
+              <GitDiffIcon size={18} />
+              <h3 id="diff-modal-title" className="modal-title">
+                Security Regression Analysis
+              </h3>
+            </div>
+            <div className="diff-scan-ids">
+              <span>Target Scan: <code className="mono-sub">{scanId}</code></span>
+              {diff?.summary?.baselineScanId && (
+                <span> • Baseline: <code className="mono-sub">{diff.summary.baselineScanId}</code></span>
+              )}
+            </div>
           </div>
+
           <button
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}
+            type="button"
+            className="modal-close-btn"
             onClick={onClose}
+            aria-label="Close dialog"
           >
-            ✕
+            <XIcon size={16} />
           </button>
         </div>
 
+        {/* Content Body */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
-            Comparing scan test cases against application baseline...
+          <div className="modal-loading-state">
+            <span className="spinner-inline" />
+            <span>Evaluating scan test cases against application baseline...</span>
           </div>
         ) : errorMsg ? (
-          <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: '#F87171', padding: '1rem', borderRadius: '8px' }}>
-            {errorMsg}
+          <div className="alert-banner alert-banner-error" role="alert">
+            <AlertCircleIcon size={16} />
+            <span>{errorMsg}</span>
           </div>
         ) : !diff || diff.verdict === 'NO_BASELINE' ? (
-          <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>ℹ️</div>
-            <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.25rem' }}>No Baseline Configured</h4>
-            <p style={{ fontSize: '0.875rem' }}>
-              Mark a previous scan as the baseline in the Scan History table to enable automated regression detection.
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <InfoIcon size={28} color="#9AA7B7" />
+            </div>
+            <h4 className="empty-state-title">No Baseline Scan Configured</h4>
+            <p className="empty-state-text">
+              To detect security regressions automatically, mark a verified clean or initial scan as the application baseline in the Scan History table.
             </p>
           </div>
         ) : (
-          <div>
-            {/* Verdict Status Banner */}
-            <div
-              style={{
-                borderRadius: '10px',
-                padding: '1rem 1.25rem',
-                marginBottom: '1.25rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                background:
-                  diff.verdict === 'REGRESSED'
-                    ? 'rgba(244, 63, 94, 0.15)'
-                    : diff.verdict === 'IMPROVED'
-                    ? 'rgba(16, 185, 129, 0.15)'
-                    : 'rgba(30, 41, 59, 0.6)',
-                border: `1px solid ${
-                  diff.verdict === 'REGRESSED'
-                    ? 'rgba(244, 63, 94, 0.4)'
-                    : diff.verdict === 'IMPROVED'
-                    ? 'rgba(16, 185, 129, 0.4)'
-                    : 'var(--border-subtle)'
-                }`,
-              }}
-            >
-              <div style={{ fontSize: '1.75rem' }}>
-                {diff.verdict === 'REGRESSED' ? '🚨' : diff.verdict === 'IMPROVED' ? '🎉' : '⚖️'}
+          <div className="diff-content-body">
+            {/* Technical Verdict Banner */}
+            <div className={`diff-verdict-card verdict-${diff.verdict?.toLowerCase()}`}>
+              <div className="verdict-icon-wrap">
+                {diff.verdict === 'REGRESSED' ? (
+                  <AlertTriangleIcon size={20} color="#F85149" />
+                ) : diff.verdict === 'IMPROVED' ? (
+                  <CheckCircleIcon size={20} color="#3FB950" />
+                ) : (
+                  <InfoIcon size={20} color="#9AA7B7" />
+                )}
               </div>
-              <div>
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: '1rem',
-                    color:
-                      diff.verdict === 'REGRESSED'
-                        ? '#F43F5E'
-                        : diff.verdict === 'IMPROVED'
-                        ? '#10B981'
-                        : 'var(--text-primary)',
-                  }}
-                >
+              <div className="verdict-text-wrap">
+                <div className="verdict-headline">
                   {diff.verdict === 'REGRESSED'
-                    ? 'SECURITY REGRESSION DETECTED'
+                    ? 'Security Regression Detected'
                     : diff.verdict === 'IMPROVED'
-                    ? 'SECURITY DEFENSE IMPROVEMENT'
-                    : 'SECURITY POSTURE UNCHANGED'}
+                    ? 'Security Posture Improved'
+                    : 'Security Posture Unchanged'}
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                <div className="verdict-detail">
                   {diff.verdict === 'REGRESSED'
-                    ? 'Adversarial tests that previously passed now fail in this model/prompt revision.'
+                    ? 'Tests that previously passed against baseline now fail in this revision. Potential prompt injection or boundary regression.'
                     : diff.verdict === 'IMPROVED'
-                    ? 'Vulnerabilities previously detected in the baseline have been verified as remediated.'
-                    : 'All test assertions yielded the exact same verdicts as the designated baseline.'}
+                    ? 'Adversarial vulnerabilities previously identified in baseline were verified as remediated.'
+                    : 'All test vectors yielded consistent verdicts with the designated application baseline.'}
                 </div>
               </div>
             </div>
 
-            {/* Regression Summary Counters */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-              <div style={{ background: '#0B1120', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '0.7rem', color: '#F43F5E', fontWeight: 600 }}>Regressions</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#F43F5E' }}>
+            {/* Regression Delta Metrics Strip */}
+            <div className="diff-metrics-strip">
+              <div className="diff-m-card">
+                <span className="m-label">Regressions</span>
+                <span className={`m-val ${diff.summary.regressionsCount > 0 ? 'text-critical' : ''}`}>
                   {diff.summary.regressionsCount}
-                </div>
+                </span>
               </div>
 
-              <div style={{ background: '#0B1120', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '0.7rem', color: '#10B981', fontWeight: 600 }}>Fixes</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10B981' }}>
+              <div className="diff-m-card">
+                <span className="m-label">Fixes Verified</span>
+                <span className="m-val text-success">
                   {diff.summary.fixesCount}
-                </div>
+                </span>
               </div>
 
-              <div style={{ background: '#0B1120', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '0.7rem', color: '#F59E0B', fontWeight: 600 }}>Unresolved</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#F59E0B' }}>
+              <div className="diff-m-card">
+                <span className="m-label">Unresolved</span>
+                <span className={`m-val ${diff.summary.unresolvedCount > 0 ? 'text-warning' : ''}`}>
                   {diff.summary.unresolvedCount}
-                </div>
+                </span>
               </div>
 
-              <div style={{ background: '#0B1120', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Pass Rate Delta</div>
-                <div
-                  style={{
-                    fontSize: '1.5rem',
-                    fontWeight: 800,
-                    color: diff.summary.passRateDelta > 0 ? '#10B981' : diff.summary.passRateDelta < 0 ? '#F43F5E' : 'inherit',
-                  }}
+              <div className="diff-m-card">
+                <span className="m-label">Pass Rate Delta</span>
+                <span
+                  className={`m-val ${
+                    diff.summary.passRateDelta > 0
+                      ? 'text-success'
+                      : diff.summary.passRateDelta < 0
+                      ? 'text-critical'
+                      : ''
+                  }`}
                 >
-                  {diff.summary.passRateDelta > 0 ? `+${diff.summary.passRateDelta}%` : `${diff.summary.passRateDelta}%`}
-                </div>
+                  {diff.summary.passRateDelta > 0
+                    ? `+${diff.summary.passRateDelta}%`
+                    : `${diff.summary.passRateDelta}%`}
+                </span>
               </div>
+            </div>
+
+            {/* Quick Filter Tabs */}
+            <div className="diff-filter-tabs">
+              <button
+                type="button"
+                className={`diff-tab-btn ${filterType === 'ALL' ? 'active' : ''}`}
+                onClick={() => setFilterType('ALL')}
+              >
+                All Vectors ({diff.details.length})
+              </button>
+              <button
+                type="button"
+                className={`diff-tab-btn ${filterType === 'REGRESSION' ? 'active' : ''}`}
+                onClick={() => setFilterType('REGRESSION')}
+              >
+                Regressions ({diff.summary.regressionsCount})
+              </button>
+              <button
+                type="button"
+                className={`diff-tab-btn ${filterType === 'FIX' ? 'active' : ''}`}
+                onClick={() => setFilterType('FIX')}
+              >
+                Fixes ({diff.summary.fixesCount})
+              </button>
+              <button
+                type="button"
+                className={`diff-tab-btn ${filterType === 'UNRESOLVED' ? 'active' : ''}`}
+                onClick={() => setFilterType('UNRESOLVED')}
+              >
+                Unresolved ({diff.summary.unresolvedCount})
+              </button>
             </div>
 
             {/* Test Case by Test Case Diff Table */}
-            <div className="data-table-wrapper">
+            <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Test Case</th>
-                    <th>Category</th>
-                    <th>Baseline Verdict</th>
-                    <th>Current Verdict</th>
-                    <th>Diff Analysis</th>
+                    <th>Test Case & ID</th>
+                    <th style={{ width: '150px' }}>Category</th>
+                    <th style={{ width: '110px' }}>Baseline</th>
+                    <th style={{ width: '110px' }}>Current</th>
+                    <th style={{ width: '200px' }}>Transition Analysis</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {diff.details.map((d) => (
-                    <tr key={d.testCaseId}>
+                  {filteredDetails.map((d) => (
+                    <tr
+                      key={d.testCaseId}
+                      className={d.diffType === 'REGRESSION' ? 'row-regression-highlight' : ''}
+                    >
                       <td>
-                        <div style={{ fontWeight: 600 }}>{d.testCaseName}</div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                          {d.testCaseId}
-                        </div>
+                        <div className="test-name-text">{d.testCaseName}</div>
+                        <span className="finding-mono-id">{d.testCaseId}</span>
                       </td>
-                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{d.category}</td>
                       <td>
-                        <span style={{ color: d.baselineVerdict === 'passed' ? '#10B981' : '#F43F5E', fontWeight: 600, fontSize: '0.8rem' }}>
+                        <span className="finding-category-pill">{d.category}</span>
+                      </td>
+                      <td>
+                        <span
+                          className={`verdict-pill ${
+                            d.baselineVerdict === 'passed' ? 'verdict-passed' : 'verdict-failed'
+                          }`}
+                        >
                           {d.baselineVerdict}
                         </span>
                       </td>
                       <td>
-                        <span style={{ color: d.targetVerdict === 'passed' ? '#10B981' : '#F43F5E', fontWeight: 600, fontSize: '0.8rem' }}>
+                        <span
+                          className={`verdict-pill ${
+                            d.targetVerdict === 'passed' ? 'verdict-passed' : 'verdict-failed'
+                          }`}
+                        >
                           {d.targetVerdict}
                         </span>
                       </td>
-                      <td>{getDiffBadge(d.diffType)}</td>
+                      <td>{renderDiffBadge(d.diffType)}</td>
                     </tr>
                   ))}
                 </tbody>

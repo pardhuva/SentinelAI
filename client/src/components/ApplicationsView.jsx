@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { createApplication } from '../api/client';
+import {
+  LayersIcon,
+  PlayIcon,
+  PlusIcon,
+  XIcon,
+  AlertTriangleIcon,
+} from './Icons';
 
-export default function ApplicationsView({ applications, onAppCreated, onSelectForScan }) {
+export default function ApplicationsView({ applications = [], onAppCreated, onSelectForScan }) {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -13,7 +20,11 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
 
   const handlePreFillDemo = (mitigated = false) => {
     setName(mitigated ? 'Acme HR Assistant (Mitigated)' : 'Acme HR Assistant (Vulnerable)');
-    setDescription('Acme Internal HR Bot target for prompt injection & canary leak assessment');
+    setDescription(
+      mitigated
+        ? 'Internal HR assistant protected with prompt boundary validation and canary guards'
+        : 'Internal HR assistant susceptible to prompt injections and synthetic canary disclosure'
+    );
     setUrl('http://127.0.0.1:5001/api/chat');
     setCanaryValue('CANARY_SECRET_HR_9941_RESTRICTED');
     setEnableMitigation(mitigated);
@@ -21,7 +32,7 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !url) {
+    if (!name.trim() || !url.trim()) {
       setErrorMsg('Application Name and Target URL are required.');
       return;
     }
@@ -36,12 +47,12 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
       }
 
       const created = await createApplication({
-        name,
-        description,
+        name: name.trim(),
+        description: description.trim(),
         targetConfig: {
           type: 'http',
-          url,
-          canaryValue,
+          url: url.trim(),
+          canaryValue: canaryValue.trim(),
           headers,
         },
       });
@@ -58,99 +69,98 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
   };
 
   return (
-    <div className="card-panel">
+    <div className="section-panel" role="region" aria-label="Target Applications Inventory">
+      {/* Panel Header */}
       <div className="panel-header">
-        <div>
-          <h2 className="panel-title">
-            <span>🎯</span> Target AI Applications
-          </h2>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Registered AI targets, LLM agents, and endpoints evaluated by SentinelAI.
+        <div className="panel-title-group">
+          <div className="panel-title-row">
+            <h2 className="panel-title">Target AI Applications</h2>
+            <span className="panel-count-badge">{applications.length} registered</span>
+          </div>
+          <p className="panel-description">
+            Configured AI endpoints, LLM agent interfaces, and chat services evaluated by SentinelAI.
           </p>
         </div>
 
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <span>+</span> Register New Target
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => {
+            setErrorMsg('');
+            setShowModal(true);
+          }}
+        >
+          <PlusIcon size={14} />
+          <span>Register Target</span>
         </button>
       </div>
 
+      {/* Applications Inventory */}
       {applications.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎯</div>
-          <h3 style={{ fontSize: '1.125rem', color: 'var(--text-primary)' }}>No Applications Configured</h3>
-          <p style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
-            Register your first target application or pre-fill the local demo target.
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <LayersIcon size={28} color="#9AA7B7" />
+          </div>
+          <h3 className="empty-state-title">No Applications Configured</h3>
+          <p className="empty-state-text">
+            Register your LLM application endpoint to start adversarial testing.
           </p>
-          <button className="btn-secondary" onClick={() => setShowModal(true)}>
-            Register Target App
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ marginTop: '0.75rem' }}
+            onClick={() => setShowModal(true)}
+          >
+            Register Application
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+        <div className="apps-inventory-grid">
           {applications.map((app) => {
-            const hasMitigation = app.targetConfig?.headers?.['x-sentinel-mitigation'];
+            const hasMitigation = Boolean(app.targetConfig?.headers?.['x-sentinel-mitigation']);
 
             return (
-              <div
-                key={app._id}
-                style={{
-                  background: '#0B1120',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '12px',
-                  padding: '1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {app.name}
-                    </h3>
+              <div key={app._id} className="app-inventory-card">
+                <div className="app-card-top">
+                  <div className="app-card-header">
+                    <h3 className="app-card-title">{app.name}</h3>
                     <span
-                      style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '4px',
-                        background: hasMitigation ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                        color: hasMitigation ? '#10B981' : '#F43F5E',
-                        border: `1px solid ${hasMitigation ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
-                      }}
+                      className={`spec-badge ${hasMitigation ? 'badge-mitigated' : 'badge-vulnerable'}`}
                     >
                       {hasMitigation ? 'Mitigated' : 'Unmitigated'}
                     </span>
                   </div>
 
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.875rem' }}>
+                  <p className="app-card-desc">
                     {app.description || 'No description provided.'}
                   </p>
 
-                  <div style={{ fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    <div>
-                      <span style={{ color: 'var(--text-muted)' }}>URL: </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)' }}>
-                        {app.targetConfig?.url}
-                      </span>
+                  <div className="app-config-specs">
+                    <div className="app-spec-row">
+                      <span className="app-spec-k">Endpoint:</span>
+                      <span className="app-spec-v mono">{app.targetConfig?.url}</span>
                     </div>
-                    <div>
-                      <span style={{ color: 'var(--text-muted)' }}>Canary Secret: </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: '#FBBF24' }}>
+                    <div className="app-spec-row">
+                      <span className="app-spec-k">Canary:</span>
+                      <span className="app-spec-v mono">
                         {app.targetConfig?.canaryValue || 'None'}
                       </span>
+                    </div>
+                    <div className="app-spec-row">
+                      <span className="app-spec-k">Protocol:</span>
+                      <span className="app-spec-v">HTTP / JSON POST</span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <div className="app-card-actions">
                   <button
-                    className="btn-secondary"
-                    style={{ flex: 1, padding: '0.5rem', fontSize: '0.8125rem', justifyContent: 'center' }}
+                    type="button"
+                    className="btn-secondary app-scan-action-btn"
                     onClick={() => onSelectForScan(app._id)}
                   >
-                    <span>⚡</span> Scan App
+                    <PlayIcon size={12} />
+                    <span>Launch Scan</span>
                   </button>
                 </div>
               </div>
@@ -161,34 +171,42 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
 
       {/* Register Application Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Register Target Application</h3>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 id="modal-title" className="modal-title">
+                Register Target Application
+              </h3>
               <button
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.25rem', cursor: 'pointer' }}
+                type="button"
+                className="modal-close-btn"
                 onClick={() => setShowModal(false)}
+                aria-label="Close dialog"
               >
-                ✕
+                <XIcon size={16} />
               </button>
             </div>
 
-            {/* Quick Demo Pre-fills */}
-            <div style={{ background: '#080C14', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Pre-fill Demo Target:</span>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {/* Quick Demo Pre-fill Presets */}
+            <div className="demo-preset-banner">
+              <span className="preset-label">Pre-fill Demo Target:</span>
+              <div className="preset-btn-group">
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                  className="preset-btn"
                   onClick={() => handlePreFillDemo(false)}
                 >
                   Vulnerable Mode
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                  className="preset-btn"
                   onClick={() => handlePreFillDemo(true)}
                 >
                   Mitigated Mode
@@ -197,18 +215,22 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
             </div>
 
             {errorMsg && (
-              <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: '#F87171', padding: '0.6rem 0.875rem', borderRadius: '6px', fontSize: '0.8125rem', marginBottom: '1rem' }}>
-                {errorMsg}
+              <div className="alert-banner alert-banner-error" role="alert">
+                <AlertTriangleIcon size={16} />
+                <span>{errorMsg}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label className="form-label">Application Name *</label>
+                <label className="form-label" htmlFor="app-name-input">
+                  Application Name *
+                </label>
                 <input
+                  id="app-name-input"
                   type="text"
                   className="form-input"
-                  placeholder="e.g. Acme HR Assistant"
+                  placeholder="e.g. Acme Customer Support AI"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -216,55 +238,68 @@ export default function ApplicationsView({ applications, onAppCreated, onSelectF
               </div>
 
               <div className="form-group">
-                <label className="form-label">Description</label>
+                <label className="form-label" htmlFor="app-desc-input">
+                  Description
+                </label>
                 <input
+                  id="app-desc-input"
                   type="text"
                   className="form-input"
-                  placeholder="Internal employee chatbot handling PTO queries"
+                  placeholder="Brief description of application scope & system instructions"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Target URL (HTTP POST) *</label>
+                <label className="form-label" htmlFor="app-url-input">
+                  Target Endpoint URL (HTTP POST) *
+                </label>
                 <input
+                  id="app-url-input"
                   type="url"
-                  className="form-input"
+                  className="form-input font-mono"
                   placeholder="http://127.0.0.1:5001/api/chat"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   required
                 />
+                <span className="form-hint">
+                  Endpoint must accept JSON payloads with a <code className="mono-sub">message</code> property.
+                </span>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Synthetic Canary Secret Token</label>
+                <label className="form-label" htmlFor="app-canary-input">
+                  Synthetic Canary Secret Token
+                </label>
                 <input
+                  id="app-canary-input"
                   type="text"
-                  className="form-input"
+                  className="form-input font-mono"
                   placeholder="e.g. CANARY_SECRET_HR_9941_RESTRICTED"
                   value={canaryValue}
                   onChange={(e) => setCanaryValue(e.target.value)}
                 />
-                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                  The canary token SentinelAI will attempt to extract via prompt injection.
-                </small>
+                <span className="form-hint">
+                  Synthetic secret SentinelAI will attempt to exfiltrate during adversarial evaluation.
+                </span>
               </div>
 
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="form-checkbox-group">
                 <input
                   type="checkbox"
                   id="mitigationCheck"
+                  className="form-checkbox"
                   checked={enableMitigation}
                   onChange={(e) => setEnableMitigation(e.target.checked)}
                 />
-                <label htmlFor="mitigationCheck" style={{ fontSize: '0.8125rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
-                  Attach Defense Mitigation Header (<code style={{ color: 'var(--primary-cyan)' }}>x-sentinel-mitigation: true</code>)
+                <label htmlFor="mitigationCheck" className="checkbox-label">
+                  Attach Mitigation Header (<code className="mono-sub">x-sentinel-mitigation: true</code>)
                 </label>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+              <div className="modal-actions">
                 <button
                   type="button"
                   className="btn-secondary"

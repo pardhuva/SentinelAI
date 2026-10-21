@@ -1,14 +1,42 @@
 import React, { useState } from 'react';
 import { updateFinding } from '../api/client';
+import {
+  AlertCircleIcon,
+  CheckCircleIcon,
+  SearchIcon,
+  FilterIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  InfoIcon,
+  CheckIcon,
+} from './Icons';
 
-export default function FindingsView({ findings, onFindingUpdated }) {
+export default function FindingsView({
+  findings = [],
+  onFindingUpdated,
+  scansCount = 0,
+  backendStatus = 'online',
+  onLaunchScan,
+}) {
   const [severityFilter, setSeverityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
+  // Filter findings based on severity, status, and search query
   const filteredFindings = findings.filter((f) => {
     if (severityFilter !== 'all' && f.severity !== severityFilter) return false;
     if (statusFilter !== 'all' && f.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = f.title?.toLowerCase().includes(q);
+      const matchCat = f.category?.toLowerCase().includes(q);
+      const matchTestId = f.testCaseId?.toLowerCase().includes(q);
+      const matchApp = f.applicationId?.name?.toLowerCase().includes(q);
+      if (!matchTitle && !matchCat && !matchTestId && !matchApp) return false;
+    }
     return true;
   });
 
@@ -24,153 +52,316 @@ export default function FindingsView({ findings, onFindingUpdated }) {
     }
   };
 
-  const getSeverityBadge = (severity) => {
-    switch (severity?.toLowerCase()) {
-      case 'critical':
-        return <span className="badge-severity badge-critical">Critical</span>;
-      case 'high':
-        return <span className="badge-severity badge-high">High</span>;
-      case 'medium':
-        return <span className="badge-severity badge-medium">Medium</span>;
-      default:
-        return <span className="badge-severity badge-low">Low</span>;
-    }
+  const handleCopyEvidence = (findingId, text) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedId(findingId);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const getStatusBadge = (status) => {
-    const cls = `badge-status badge-status-${status?.replace('_', '-')}`;
-    return <span className={cls}>{status?.replace('_', ' ')}</span>;
+  const toggleExpand = (id) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const resetFilters = () => {
+    setSeverityFilter('all');
+    setStatusFilter('all');
+    setSearchQuery('');
+  };
+
+  const renderSeverityBadge = (severity) => {
+    const sev = severity?.toLowerCase() || 'low';
+    return (
+      <span className={`badge-severity badge-sev-${sev}`}>
+        <span className="severity-dot" aria-hidden="true" />
+        {severity}
+      </span>
+    );
+  };
+
+  const renderStatusBadge = (status) => {
+    const formatted = status ? status.replace('_', ' ') : 'open';
+    const cls = `badge-status badge-status-${status?.replace('_', '-') || 'open'}`;
+    return <span className={cls}>{formatted}</span>;
   };
 
   return (
-    <div className="card-panel">
+    <div className="section-panel" role="region" aria-label="Security Findings Workspace">
+      {/* Panel Header */}
       <div className="panel-header">
-        <div>
-          <h2 className="panel-title">
-            <span>🛡️</span> Security Vulnerabilities & Findings
-          </h2>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Triaged vulnerabilities detected across AI applications and prompt instructions.
+        <div className="panel-title-group">
+          <div className="panel-title-row">
+            <h2 className="panel-title">Security Findings</h2>
+            <span className="panel-count-badge">
+              {filteredFindings.length} of {findings.length}
+            </span>
+          </div>
+          <p className="panel-description">
+            Vulnerabilities detected across adversarial LLM evaluations, jailbreaks, and canary extractions.
           </p>
         </div>
 
-        {/* Filter controls */}
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <select
-            className="form-select"
-            style={{ width: 'auto', padding: '0.4rem 0.75rem', fontSize: '0.8125rem' }}
-            value={severityFilter}
-            onChange={(e) => setSeverityFilter(e.target.value)}
-          >
-            <option value="all">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
+        {/* Filter and Search Bar */}
+        <div className="panel-filters-bar">
+          <div className="search-input-wrap">
+            <SearchIcon size={14} className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search findings, test IDs, categories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search findings"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
 
-          <select
-            className="form-select"
-            style={{ width: 'auto', padding: '0.4rem 0.75rem', fontSize: '0.8125rem' }}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="investigating">Investigating</option>
-            <option value="resolved">Resolved</option>
-            <option value="false_positive">False Positive</option>
-          </select>
+          <div className="filter-select-group">
+            <div className="select-wrap">
+              <select
+                className="form-select filter-select"
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                aria-label="Filter by severity"
+              >
+                <option value="all">All Severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            <div className="select-wrap">
+              <select
+                className="form-select filter-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                aria-label="Filter by status"
+              >
+                <option value="all">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="investigating">Investigating</option>
+                <option value="resolved">Resolved</option>
+                <option value="false_positive">False Positive</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
-      {filteredFindings.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✨</div>
-          <h3 style={{ fontSize: '1.125rem', color: 'var(--text-primary)' }}>No Findings Matching Criteria</h3>
-          <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Run a security scan against a target to assess for prompt injection and data leaks.
+      {/* Accurate Empty States Handling */}
+      {backendStatus === 'offline' ? (
+        <div className="empty-state error-state">
+          <div className="empty-state-icon">
+            <AlertCircleIcon size={28} color="#F85149" />
+          </div>
+          <h3 className="empty-state-title">Backend Connection Failed</h3>
+          <p className="empty-state-text">
+            Unable to communicate with the SentinelAI API server. Ensure the server process is running on port 5000.
           </p>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {filteredFindings.map((finding) => (
-            <div
-              key={finding._id}
-              style={{
-                background: '#0B1120',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '12px',
-                padding: '1.25rem',
-                transition: 'border-color var(--transition-fast)',
-              }}
+      ) : scansCount === 0 && findings.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <InfoIcon size={28} color="#9AA7B7" />
+          </div>
+          <h3 className="empty-state-title">No Scans Executed Yet</h3>
+          <p className="empty-state-text">
+            Run an adversarial security scan against your target application to assess vulnerability to prompt injections and data leaks.
+          </p>
+          {onLaunchScan && (
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ marginTop: '0.75rem' }}
+              onClick={onLaunchScan}
             >
-              {/* Finding Card Top Bar */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
-                    {getSeverityBadge(finding.severity)}
-                    <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                      {finding.testCaseId}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', background: 'rgba(6, 182, 212, 0.1)', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>
-                      {finding.category}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      • {finding.applicationId?.name || 'Acme HR Assistant'}
-                    </span>
-                  </div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {finding.title}
-                  </h3>
-                </div>
+              Launch First Scan
+            </button>
+          )}
+        </div>
+      ) : scansCount > 0 && findings.length === 0 ? (
+        <div className="empty-state clean-state">
+          <div className="empty-state-icon">
+            <CheckCircleIcon size={28} color="#3FB950" />
+          </div>
+          <h3 className="empty-state-title">Zero Security Vulnerabilities Detected</h3>
+          <p className="empty-state-text">
+            All executed adversarial evaluations passed. The model maintained instruction integrity and refused secret extraction.
+          </p>
+        </div>
+      ) : filteredFindings.length === 0 ? (
+        <div className="empty-state filtered-state">
+          <div className="empty-state-icon">
+            <FilterIcon size={28} color="#9AA7B7" />
+          </div>
+          <h3 className="empty-state-title">No Findings Match Active Filters</h3>
+          <p className="empty-state-text">
+            No security findings matched the selected severity, status, or search query criteria.
+          </p>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ marginTop: '0.75rem' }}
+            onClick={resetFilters}
+          >
+            Clear Active Filters
+          </button>
+        </div>
+      ) : (
+        /* Dense Findings Table */
+        <div className="findings-table-container">
+          <table className="findings-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }} aria-label="Expand"></th>
+                <th style={{ width: '110px' }}>Severity</th>
+                <th>Finding & Category</th>
+                <th style={{ width: '150px' }}>Test Case ID</th>
+                <th style={{ width: '180px' }}>Target Application</th>
+                <th style={{ width: '170px' }}>Status Triage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFindings.map((finding) => {
+                const isExpanded = expandedId === finding._id;
+                const isUpdating = updatingId === finding._id;
+                const isCopied = copiedId === finding._id;
 
-                {/* Status Triage Control */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {getStatusBadge(finding.status)}
-                  <select
-                    className="form-select"
-                    style={{ width: 'auto', padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-                    value={finding.status}
-                    disabled={updatingId === finding._id}
-                    onChange={(e) => handleStatusChange(finding._id, e.target.value)}
-                  >
-                    <option value="open">Open</option>
-                    <option value="investigating">Investigating</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="false_positive">False Positive</option>
-                  </select>
-                </div>
-              </div>
+                return (
+                  <React.Fragment key={finding._id}>
+                    <tr
+                      className={`findings-row ${isExpanded ? 'row-expanded' : ''}`}
+                      onClick={() => toggleExpand(finding._id)}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleExpand(finding._id);
+                        }
+                      }}
+                      role="button"
+                      aria-expanded={isExpanded}
+                    >
+                      <td className="cell-expand-toggle">
+                        <span className="expand-chevron">
+                          {isExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+                        </span>
+                      </td>
 
-              {/* Description */}
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                {finding.description}
-              </p>
+                      <td>{renderSeverityBadge(finding.severity)}</td>
 
-              {/* Captured Evidence Box */}
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-                  Captured Evidence & Violation Snippet:
-                </span>
-                <div className="evidence-box">
-                  {finding.evidence || 'No raw evidence captured.'}
-                </div>
-              </div>
+                      <td>
+                        <div className="finding-title-cell">
+                          <span className="finding-title">{finding.title}</span>
+                          <span className="finding-category-pill">
+                            {finding.category}
+                          </span>
+                        </div>
+                      </td>
 
-              {/* Prescriptive Remediation Box */}
-              {finding.remediation && (
-                <div style={{ marginTop: '0.75rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', padding: '0.75rem 1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', fontWeight: 700, color: '#34D399', textTransform: 'uppercase' }}>
-                    <span>💡</span> Prescriptive Remediation:
-                  </div>
-                  <p style={{ fontSize: '0.8125rem', color: '#A7F3D0', marginTop: '0.25rem', lineHeight: 1.4 }}>
-                    {finding.remediation}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+                      <td>
+                        <span className="finding-mono-id">
+                          {finding.testCaseId}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span className="finding-app-name">
+                          {finding.applicationId?.name || 'Acme HR Assistant'}
+                        </span>
+                      </td>
+
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="status-triage-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          {renderStatusBadge(finding.status)}
+                          <select
+                            className="form-select status-select"
+                            value={finding.status}
+                            disabled={isUpdating}
+                            onChange={(e) => handleStatusChange(finding._id, e.target.value)}
+                            aria-label={`Update status for ${finding.title}`}
+                          >
+                            <option value="open">Open</option>
+                            <option value="investigating">Investigating</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="false_positive">False Positive</option>
+                          </select>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Expandable Evidence & Remediation Drawer */}
+                    {isExpanded && (
+                      <tr className="finding-drawer-row">
+                        <td colSpan={6}>
+                          <div className="finding-drawer-content">
+                            <div className="drawer-description-block">
+                              <h4 className="drawer-section-heading">Description</h4>
+                              <p className="drawer-text">{finding.description}</p>
+                            </div>
+
+                            <div className="drawer-grid">
+                              {/* Evidence Box */}
+                              <div className="evidence-panel">
+                                <div className="evidence-header">
+                                  <span className="evidence-label">
+                                    Captured Evidence & Violation Snippet
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="copy-snippet-btn"
+                                    onClick={() => handleCopyEvidence(finding._id, finding.evidence)}
+                                    aria-label="Copy evidence snippet"
+                                  >
+                                    {isCopied ? (
+                                      <>
+                                        <CheckIcon size={12} color="#3FB950" />
+                                        <span>Copied</span>
+                                      </>
+                                    ) : (
+                                      <span>Copy</span>
+                                    )}
+                                  </button>
+                                </div>
+                                <pre className="evidence-snippet">
+                                  <code>{finding.evidence || 'No raw violation evidence captured.'}</code>
+                                </pre>
+                              </div>
+
+                              {/* Remediation Advice */}
+                              {finding.remediation && (
+                                <div className="remediation-panel">
+                                  <div className="remediation-header">
+                                    <span className="remediation-label">
+                                      Prescriptive Security Remediation
+                                    </span>
+                                  </div>
+                                  <p className="remediation-body">
+                                    {finding.remediation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
