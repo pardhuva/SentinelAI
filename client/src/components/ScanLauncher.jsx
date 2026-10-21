@@ -18,14 +18,8 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
 
   const pollIntervalRef = useRef(null);
 
-  // Default to first application if available
-  useEffect(() => {
-    if (applications.length > 0 && !selectedAppId) {
-      setSelectedAppId(applications[0]._id);
-    }
-  }, [applications, selectedAppId]);
-
-  const selectedApp = applications.find((a) => a._id === selectedAppId);
+  const activeAppId = selectedAppId || applications[0]?._id || '';
+  const selectedApp = applications.find((a) => a._id === activeAppId);
 
   // Poll active scan status
   useEffect(() => {
@@ -64,7 +58,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
   }, [activeScan, onScanCompleted]);
 
   const handleStartScan = async () => {
-    if (!selectedAppId) return;
+    if (!activeAppId) return;
 
     setErrorMsg('');
     setIsScanning(true);
@@ -72,7 +66,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
 
     try {
       const initiatedScan = await triggerScan({
-        applicationId: selectedAppId,
+        applicationId: activeAppId,
         triggerSource: 'manual',
         sync: false,
       });
@@ -145,7 +139,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
               <select
                 id="target-app-select"
                 className="form-select"
-                value={selectedAppId}
+                value={activeAppId}
                 disabled={isScanning}
                 onChange={(e) => setSelectedAppId(e.target.value)}
               >
@@ -161,7 +155,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
               type="button"
               className="btn-primary launcher-execute-btn"
               onClick={handleStartScan}
-              disabled={isScanning || !selectedAppId}
+              disabled={isScanning || !activeAppId}
             >
               {isScanning ? (
                 <>

@@ -5,6 +5,18 @@
 
 const API_BASE = '/api';
 
+function fetchWithTimeout(url, options = {}, timeoutMs = 6000) {
+  let signal = options.signal;
+  if (!signal && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    try {
+      signal = AbortSignal.timeout(timeoutMs);
+    } catch {
+      // Fallback if timeout throws
+    }
+  }
+  return fetch(url, { ...options, signal });
+}
+
 async function handleResponse(res) {
   const json = await res.json();
   if (!res.ok) {
@@ -18,17 +30,17 @@ async function handleResponse(res) {
 }
 
 export async function fetchHealth() {
-  const res = await fetch(`${API_BASE}/health`);
+  const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 4000);
   return handleResponse(res);
 }
 
 export async function fetchApplications() {
-  const res = await fetch(`${API_BASE}/applications`);
+  const res = await fetchWithTimeout(`${API_BASE}/applications`);
   return handleResponse(res);
 }
 
 export async function createApplication(payload) {
-  const res = await fetch(`${API_BASE}/applications`, {
+  const res = await fetchWithTimeout(`${API_BASE}/applications`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -37,11 +49,11 @@ export async function createApplication(payload) {
 }
 
 export async function triggerScan({ applicationId, triggerSource = 'manual', sync = false }) {
-  const res = await fetch(`${API_BASE}/scans`, {
+  const res = await fetchWithTimeout(`${API_BASE}/scans`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ applicationId, triggerSource, sync }),
-  });
+  }, 10000);
   return handleResponse(res);
 }
 
@@ -51,17 +63,17 @@ export async function fetchScans({ applicationId, page = 1, limit = 20 } = {}) {
   params.append('page', page);
   params.append('limit', limit);
 
-  const res = await fetch(`${API_BASE}/scans?${params.toString()}`);
+  const res = await fetchWithTimeout(`${API_BASE}/scans?${params.toString()}`);
   return handleResponse(res);
 }
 
 export async function fetchScan(scanId) {
-  const res = await fetch(`${API_BASE}/scans/${scanId}`);
+  const res = await fetchWithTimeout(`${API_BASE}/scans/${scanId}`);
   return handleResponse(res);
 }
 
 export async function fetchScanResults(scanId) {
-  const res = await fetch(`${API_BASE}/scans/${scanId}/results`);
+  const res = await fetchWithTimeout(`${API_BASE}/scans/${scanId}/results`);
   return handleResponse(res);
 }
 
@@ -74,7 +86,7 @@ export async function fetchFindings({ applicationId, scanId, severity, status, p
   params.append('page', page);
   params.append('limit', limit);
 
-  const res = await fetch(`${API_BASE}/findings?${params.toString()}`);
+  const res = await fetchWithTimeout(`${API_BASE}/findings?${params.toString()}`);
   return handleResponse(res);
 }
 
@@ -82,12 +94,12 @@ export async function fetchFindingsSummary({ applicationId } = {}) {
   const params = new URLSearchParams();
   if (applicationId) params.append('applicationId', applicationId);
 
-  const res = await fetch(`${API_BASE}/findings/summary?${params.toString()}`);
+  const res = await fetchWithTimeout(`${API_BASE}/findings/summary?${params.toString()}`);
   return handleResponse(res);
 }
 
 export async function updateFinding(findingId, { status, notes }) {
-  const res = await fetch(`${API_BASE}/findings/${findingId}`, {
+  const res = await fetchWithTimeout(`${API_BASE}/findings/${findingId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status, notes }),
@@ -96,7 +108,7 @@ export async function updateFinding(findingId, { status, notes }) {
 }
 
 export async function setApplicationBaseline(applicationId, scanId) {
-  const res = await fetch(`${API_BASE}/applications/${applicationId}/baseline`, {
+  const res = await fetchWithTimeout(`${API_BASE}/applications/${applicationId}/baseline`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ scanId }),
@@ -105,12 +117,12 @@ export async function setApplicationBaseline(applicationId, scanId) {
 }
 
 export async function fetchScanRegression(scanId) {
-  const res = await fetch(`${API_BASE}/scans/${scanId}/regression`);
+  const res = await fetchWithTimeout(`${API_BASE}/scans/${scanId}/regression`);
   return handleResponse(res);
 }
 
 export async function compareScans(targetScanId, baselineScanId) {
-  const res = await fetch(`${API_BASE}/scans/${targetScanId}/compare/${baselineScanId}`, {
+  const res = await fetchWithTimeout(`${API_BASE}/scans/${targetScanId}/compare/${baselineScanId}`, {
     method: 'POST',
   });
   return handleResponse(res);
