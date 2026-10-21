@@ -1,18 +1,29 @@
 const { Application, Scan, TestResult, Finding } = require('../models');
 const ScanEngine = require('../test-engine/ScanEngine');
+const { addScanJob } = require('../queues/scan.queue');
 
 const scanEngine = new ScanEngine();
 
 /**
- * Creates and immediately starts a new scan for an application.
+ * Creates and triggers a new scan for an application.
+ * By default, enqueues to BullMQ background worker.
+ * If sync=true, runs synchronously with ScanEngine.
  * 
  * @param {Object} params
  * @param {string} params.applicationId
  * @param {string} [params.triggerSource='manual']
  * @param {string} [params.baselineScanId]
+ * @param {boolean} [params.sync=false]
+ * @param {Array<Object>} [params.testCases]
  * @returns {Promise<import('../models/Scan')>}
  */
-async function triggerScan({ applicationId, triggerSource = 'manual', baselineScanId = null }) {
+async function triggerScan({
+  applicationId,
+  triggerSource = 'manual',
+  baselineScanId = null,
+  sync = false,
+  testCases = null,
+}) {
   const application = await Application.findById(applicationId);
   if (!application) {
     const error = new Error(`Application with ID "${applicationId}" not found.`);
@@ -25,14 +36,27 @@ async function triggerScan({ applicationId, triggerSource = 'manual', baselineSc
   const scan = await Scan.create({
     applicationId: application._id,
     status: 'pending',
+    progress: 0,
     triggerSource,
     baselineScanId: baselineScanId || null,
   });
 
-  // For Milestone 4, we execute the scan synchronously via ScanEngine.
-  // In Milestone 5, this will be enqueued to BullMQ background worker!
-  const executedScan = await scanEngine.executeScan(scan._id);
-  return executedScan;
+  if (sync) {
+    const executedScan = await scanEngine.executeScan(scan._id, { testCases });
+    return executedScan;
+  }
+
+  // Enqueue job to background queue
+  const job = await addScanJob({
+    scanId: scan._id.toString(),
+    applicationId: application._id.toString(),
+    options: testCases ? { testCases } : {},
+  });
+
+  scan.jobId = String(job.id);
+  await scan.save();
+
+  return scan;
 }
 
 /**

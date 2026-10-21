@@ -83,7 +83,8 @@ class ScanEngine {
     const canaryValue = application.targetConfig.canaryValue || '';
 
     // Execute each test case sequentially
-    for (const testCase of testCases) {
+    for (let i = 0; i < testCases.length; i++) {
+      const testCase = testCases[i];
       let targetResponse;
 
       try {
@@ -150,12 +151,28 @@ class ScanEngine {
         scan.needsReviewCount += 1;
       }
 
-      // Progressive count update
+      // Progressive progress and count update
+      const percentage = Math.round(((i + 1) / testCases.length) * 100);
+      scan.progress = percentage;
       await scan.save();
+
+      if (options.onProgress && typeof options.onProgress === 'function') {
+        try {
+          await options.onProgress({
+            completed: i + 1,
+            total: testCases.length,
+            percentage,
+            testCaseId: testCase.id,
+          });
+        } catch (progressErr) {
+          console.warn('[ScanEngine] onProgress callback error:', progressErr.message);
+        }
+      }
     }
 
     // Complete scan
     scan.status = 'completed';
+    scan.progress = 100;
     scan.completedAt = new Date();
     scan.durationMs = scan.completedAt.getTime() - scan.startedAt.getTime();
     await scan.save();

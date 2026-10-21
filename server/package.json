@@ -17,10 +17,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "bullmq": "^6.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "ioredis": "^5.11.1",
+    "ioredis-mock": "^8.13.1",
     "mongoose": "^9.11.2",
     "morgan": "^1.10.0"
   },

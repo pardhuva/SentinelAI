@@ -90,10 +90,10 @@ describe('Scan Execution & Persistence Engine', () => {
 
       const appId = appRes.body.data._id;
 
-      // 2. Trigger scan
+      // 2. Trigger scan synchronously
       const scanRes = await request(app)
         .post('/api/scans')
-        .send({ applicationId: appId });
+        .send({ applicationId: appId, sync: true });
 
       expect(scanRes.status).toBe(201);
       expect(scanRes.body.success).toBe(true);
@@ -142,10 +142,10 @@ describe('Scan Execution & Persistence Engine', () => {
 
       const appId = appRes.body.data._id;
 
-      // 2. Trigger scan
+      // 2. Trigger scan synchronously
       const scanRes = await request(app)
         .post('/api/scans')
-        .send({ applicationId: appId });
+        .send({ applicationId: appId, sync: true });
 
       expect(scanRes.status).toBe(201);
       expect(scanRes.body.data.status).toBe('completed');

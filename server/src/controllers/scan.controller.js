@@ -6,7 +6,7 @@ const scanService = require('../services/scan.service');
  */
 async function startScan(req, res, next) {
   try {
-    const { applicationId, triggerSource, baselineScanId } = req.body;
+    const { applicationId, triggerSource, baselineScanId, sync } = req.body;
 
     if (!applicationId) {
       return res.status(400).json({
@@ -15,10 +15,13 @@ async function startScan(req, res, next) {
       });
     }
 
+    const isSync = sync === true || req.query.sync === 'true';
+
     const scan = await scanService.triggerScan({
       applicationId,
       triggerSource,
       baselineScanId,
+      sync: isSync,
     });
 
     return res.status(201).json({

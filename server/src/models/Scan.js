@@ -14,6 +14,17 @@ const ScanSchema = new mongoose.Schema(
       default: 'pending',
       index: true,
     },
+    jobId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
     totalTests: {
       type: Number,
       default: 0,
