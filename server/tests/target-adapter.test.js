@@ -113,12 +113,15 @@ describe('Target Adapter System', () => {
     });
 
     it('should classify timeout as a retryable error', async () => {
+      let timer;
       // Create a slow mock server that hangs
       const slowServer = http.createServer((req, res) => {
         // Deliberately do not answer before timeout
-        setTimeout(() => {
-          res.writeHead(200);
-          res.end('Late');
+        timer = setTimeout(() => {
+          if (!res.writableEnded) {
+            res.writeHead(200);
+            res.end('Late');
+          }
         }, 500);
       });
 
@@ -136,6 +139,7 @@ describe('Target Adapter System', () => {
       expect(result.error.code).toBe('TIMEOUT_ERROR');
       expect(result.error.isRetryable).toBe(true);
 
+      clearTimeout(timer);
       await new Promise((resolve) => slowServer.close(resolve));
     });
   });
