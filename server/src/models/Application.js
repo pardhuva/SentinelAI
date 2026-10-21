@@ -51,6 +51,11 @@ const ApplicationSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    currentBaselineScanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Scan',
+      default: null,
+    },
   },
   {
     timestamps: true,

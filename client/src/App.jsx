@@ -164,6 +164,7 @@ export default function App() {
               <ScanHistoryView
                 scans={scans}
                 onSelectScan={handleSelectScanFindings}
+                onBaselineUpdated={loadDashboardData}
               />
             )}
           </>

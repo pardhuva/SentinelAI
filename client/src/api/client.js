@@ -94,3 +94,24 @@ export async function updateFinding(findingId, { status, notes }) {
   });
   return handleResponse(res);
 }
+
+export async function setApplicationBaseline(applicationId, scanId) {
+  const res = await fetch(`${API_BASE}/applications/${applicationId}/baseline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scanId }),
+  });
+  return handleResponse(res);
+}
+
+export async function fetchScanRegression(scanId) {
+  const res = await fetch(`${API_BASE}/scans/${scanId}/regression`);
+  return handleResponse(res);
+}
+
+export async function compareScans(targetScanId, baselineScanId) {
+  const res = await fetch(`${API_BASE}/scans/${targetScanId}/compare/${baselineScanId}`, {
+    method: 'POST',
+  });
+  return handleResponse(res);
+}

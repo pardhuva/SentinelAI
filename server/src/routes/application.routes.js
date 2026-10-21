@@ -6,12 +6,15 @@ const {
   updateApplication,
   deleteApplication,
 } = require('../controllers/application.controller');
+const { setBaseline } = require('../controllers/regression.controller');
 
 const router = express.Router();
 
 router.route('/')
   .post(createApplication)
   .get(listApplications);
+
+router.post('/:id/baseline', setBaseline);
 
 router.route('/:id')
   .get(getApplication)

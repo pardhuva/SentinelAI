@@ -2,6 +2,7 @@ const { Scan, TestResult, Finding, Application } = require('../models');
 const { createTargetAdapter } = require('../providers');
 const { defaultEvaluator } = require('../evaluators');
 const { getAllTestCases } = require('./test-library');
+const RegressionEngine = require('./RegressionEngine');
 
 /**
  * Returns prescriptive remediation advice based on the security category.
@@ -24,9 +25,11 @@ class ScanEngine {
   /**
    * @param {Object} [dependencies]
    * @param {import('../evaluators/DeterministicEvaluator')} [dependencies.evaluator]
+   * @param {RegressionEngine} [dependencies.regressionEngine]
    */
-  constructor({ evaluator } = {}) {
+  constructor({ evaluator, regressionEngine } = {}) {
     this.evaluator = evaluator || defaultEvaluator;
+    this.regressionEngine = regressionEngine || new RegressionEngine();
   }
 
   /**
@@ -49,6 +52,11 @@ class ScanEngine {
       scan.error = { code: 'APP_NOT_FOUND', message: 'Associated application does not exist.' };
       await scan.save();
       throw new Error(`Application not found for scan ID: ${scanId}`);
+    }
+
+    // Associate active baseline if not already defined
+    if (!scan.baselineScanId && application.currentBaselineScanId) {
+      scan.baselineScanId = application.currentBaselineScanId;
     }
 
     // Mark scan as running
@@ -175,6 +183,31 @@ class ScanEngine {
     scan.progress = 100;
     scan.completedAt = new Date();
     scan.durationMs = scan.completedAt.getTime() - scan.startedAt.getTime();
+
+    // Auto-compute regression against baseline if available
+    if (scan.baselineScanId) {
+      try {
+        const diff = await this.regressionEngine.compareScans(scan._id, scan.baselineScanId);
+        scan.regressionSummary = {
+          verdict: diff.verdict,
+          regressionsCount: diff.summary.regressionsCount,
+          fixesCount: diff.summary.fixesCount,
+          unresolvedCount: diff.summary.unresolvedCount,
+          consistentPassedCount: diff.summary.consistentPassedCount,
+        };
+      } catch (diffErr) {
+        console.warn('[ScanEngine] Failed to auto-compute regression diff:', diffErr.message);
+      }
+    } else {
+      scan.regressionSummary = {
+        verdict: 'NO_BASELINE',
+        regressionsCount: 0,
+        fixesCount: 0,
+        unresolvedCount: scan.failedCount,
+        consistentPassedCount: scan.passedCount,
+      };
+    }
+
     await scan.save();
 
     return scan;

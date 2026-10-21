@@ -71,6 +71,22 @@ const ScanSchema = new mongoose.Schema(
       ref: 'Scan',
       default: null,
     },
+    isBaseline: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    regressionSummary: {
+      verdict: {
+        type: String,
+        enum: ['REGRESSED', 'IMPROVED', 'UNCHANGED', 'FIRST_SCAN', 'NO_BASELINE'],
+        default: 'NO_BASELINE',
+      },
+      regressionsCount: { type: Number, default: 0 },
+      fixesCount: { type: Number, default: 0 },
+      unresolvedCount: { type: Number, default: 0 },
+      consistentPassedCount: { type: Number, default: 0 },
+    },
     error: {
       code: String,
       message: String,

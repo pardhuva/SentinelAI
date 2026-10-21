@@ -6,6 +6,10 @@ const {
   getScanResults,
   getScanFindings,
 } = require('../controllers/scan.controller');
+const {
+  getRegression,
+  compareTwoScans,
+} = require('../controllers/regression.controller');
 
 const router = express.Router();
 
@@ -21,5 +25,8 @@ router.route('/:id/results')
 
 router.route('/:id/findings')
   .get(getScanFindings);
+
+router.get('/:id/regression', getRegression);
+router.post('/:id/compare/:baselineId', compareTwoScans);
 
 module.exports = router;
