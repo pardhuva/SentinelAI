@@ -1,0 +1,44 @@
+name: SentinelAI - Automated LLM Security & Regression Gate
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  security-evaluations:
+    name: Run LLM Security & Regression Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          npm --prefix demo-target install
+          npm --prefix server install
+          npm --prefix client install
+
+      - name: Run Core Test Suites (Unit, Target Adapter, Evaluators, Queues, Regressions)
+        run: npm test
+
+      - name: Build React Dashboard Bundle
+        run: npm run build:client
+
+      - name: Start Demo Target Service
+        run: |
+          npm --prefix demo-target start &
+          sleep 3
+
+      - name: Run SentinelAI Automated CLI Security Scanner
+        run: |
+          node bin/sentinel.js --url http://127.0.0.1:5001/api/chat --mitigation --fail-on-findings

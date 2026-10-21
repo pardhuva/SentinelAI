@@ -10,7 +10,8 @@
     "test:server": "npm --prefix server test",
     "test:target": "npm --prefix demo-target test",
     "test": "npm run test:server && npm run test:target",
-    "build:client": "npm --prefix client run build"
+    "build:client": "npm --prefix client run build",
+    "scan:cli": "node bin/sentinel.js"
   },
   "keywords": [
     "llm-security",
