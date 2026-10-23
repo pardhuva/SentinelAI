@@ -348,9 +348,38 @@ To deploy SentinelAI to a restricted cloud environment (e.g. AWS ECS, GCP Cloud 
 
 ---
 
-## 10. Audit Sign-Off
+## 10. Verified Live Portfolio Deployment
 
-* **Audit Verdict:** **READY FOR RESTRICTED PORTFOLIO DEPLOYMENT**
+SentinelAI has been successfully deployed and verified on **Render** as a live portfolio demonstration:
+
+* **Primary Application URL:** [https://sentinelai-g2lk.onrender.com](https://sentinelai-g2lk.onrender.com)
+* **Health Endpoint:** [https://sentinelai-g2lk.onrender.com/api/health](https://sentinelai-g2lk.onrender.com/api/health)
+* **Runtime Verification:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "status": "ok",
+      "service": "SentinelAI Core API",
+      "version": "0.1.0",
+      "environment": "production"
+    }
+  }
+  ```
+* **Production Invariants Verified:**
+  - Zero secrets in client browser bundle.
+  - Fail-closed API authentication active.
+  - MongoDB Atlas connected with SCRAM authentication and TLS encryption.
+  - Upstash Redis connected via TLS (`rediss://`) for BullMQ queue processing.
+  - SSRF connection-time DNS validation active.
+  - Single-origin asset serving with Helmet security headers.
+
+---
+
+## 11. Audit Sign-Off
+
+* **Audit Verdict:** **READY FOR RESTRICTED PORTFOLIO DEPLOYMENT (VERIFIED LIVE)**
+* **Live Deployment URL:** `https://sentinelai-g2lk.onrender.com`
 * **Evaluated Test Pass Rate:** 100% (107/107 automated tests across server and demo-target)
 * **P0 Deployment Blockers:** 0 Unresolved
 * **Security Boundaries Documented:** Single-tenant operator model, in-memory rate limiting, sequential scan execution.
