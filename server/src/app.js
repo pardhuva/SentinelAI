@@ -17,26 +17,42 @@ const { sanitizePagination } = require('./middleware/validate');
 
 const app = express();
 
-// Security HTTP headers
-app.use(helmet());
+// Security HTTP headers (configured for SPA dashboard asset loading)
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 
 // Enable Cross-Origin Resource Sharing with strictly configured origin
 app.use(cors({
   origin: (origin, callback) => {
-    // Requests with no origin (like mobile apps, curl, CI/CD CLI) are permitted
+    // Requests with no origin (like mobile apps, curl, CI/CD CLI, server-side fetch) are permitted
     if (!origin) return callback(null, true);
 
-    const configuredOrigin = config.clientUrl;
-    if (origin === configuredOrigin) {
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    const configuredOrigin = (config.clientUrl || '').replace(/\/+$/, '');
+
+    // 1. Direct match with configured client URL (ignoring trailing slash differences)
+    if (configuredOrigin && cleanOrigin === configuredOrigin) {
       return callback(null, true);
     }
 
-    // In non-production, permit standard local development origins
+    // 2. Allow Render deployment domains (*.onrender.com)
+    try {
+      const parsed = new URL(origin);
+      if (parsed.hostname.endsWith('.onrender.com')) {
+        return callback(null, true);
+      }
+    } catch {
+      // ignore parse errors
+    }
+
+    // 3. In non-production, permit standard local development origins
     if (!config.isProduction && (
-      origin === 'http://localhost:3000' ||
-      origin === 'http://127.0.0.1:3000' ||
-      origin === 'http://localhost:5173' ||
-      origin === 'http://127.0.0.1:5173'
+      cleanOrigin === 'http://localhost:3000' ||
+      cleanOrigin === 'http://127.0.0.1:3000' ||
+      cleanOrigin === 'http://localhost:5173' ||
+      cleanOrigin === 'http://127.0.0.1:5173'
     )) {
       return callback(null, true);
     }
