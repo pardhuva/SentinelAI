@@ -3,7 +3,7 @@ services:
   - type: web
     name: sentinelai-web
     env: node
-    plan: starter
+    plan: free
     region: oregon
     buildCommand: npm install && npm --prefix client install && npm --prefix client run build && npm --prefix server install
     startCommand: node server/src/server.js
