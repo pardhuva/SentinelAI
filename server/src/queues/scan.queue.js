@@ -5,7 +5,11 @@ const { InMemoryQueue } = require('./in-memory-queue');
 
 const QUEUE_NAME = 'security-scans';
 
-const isMockMode = config.nodeEnv === 'test' || process.env.USE_MOCK_REDIS === 'true';
+if (config.nodeEnv === 'production' && process.env.USE_MOCK_REDIS === 'true') {
+  throw new Error('[SentinelAI Queue] Production cannot silently fall back to an in-memory queue. Authenticated Redis is required.');
+}
+
+const isMockMode = config.nodeEnv === 'test' || (process.env.USE_MOCK_REDIS === 'true' && config.nodeEnv !== 'production');
 
 let scanQueue;
 

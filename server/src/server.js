@@ -1,5 +1,6 @@
 const app = require('./app');
 const config = require('./config/env');
+const { validateEnv } = require('./config/validateEnv');
 const { connectDB, disconnectDB } = require('./config/database');
 const { createScanWorker, closeScanWorker } = require('./workers/scan.worker');
 const { closeScanQueue } = require('./queues/scan.queue');
@@ -8,12 +9,19 @@ let server;
 
 async function startServer() {
   try {
-    // 1. Connect to MongoDB
+    // 0. Validate environment configuration before any operations
+    validateEnv(config);
+
+    // 1. Connect to MongoDB (enforcing authenticated TLS in production)
     await connectDB();
 
-    // 2. Start background scan worker
-    createScanWorker();
-    console.log('[SentinelAI] Background scan worker started.');
+    // 2. Start background scan worker if configured for unified process mode
+    if (config.startWorker) {
+      createScanWorker();
+      console.log('[SentinelAI] Background scan worker initialized in API process.');
+    } else {
+      console.log('[SentinelAI] Background scan worker disabled in API process (running standalone worker service).');
+    }
 
     // 3. Start HTTP server
     server = app.listen(config.port, () => {
@@ -33,7 +41,9 @@ async function shutdown(signal) {
     server.close(async () => {
       console.log('[SentinelAI] HTTP server closed.');
       try {
-        await closeScanWorker();
+        if (config.startWorker) {
+          await closeScanWorker();
+        }
         await closeScanQueue();
         await disconnectDB();
         console.log('[SentinelAI] All resources cleaned up.');
@@ -60,4 +70,3 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 startServer();
 
 module.exports = server;
-

@@ -15,17 +15,37 @@ const DeterministicEvaluator = require('../src/evaluators/DeterministicEvaluator
 const RegressionEngine = require('../src/test-engine/RegressionEngine');
 const { isProhibitedIp, validateTargetDestination } = require('../src/providers/ssrfValidator');
 const HttpTargetAdapter = require('../src/providers/HttpTargetAdapter');
+const demoApp = require('../../demo-target/src/app');
 
 describe('Security Hardening & Advanced Application Profiles Test Suite', () => {
   const evaluator = new DeterministicEvaluator();
   const regressionEngine = new RegressionEngine();
   const validApiKey = process.env.SENTINEL_API_KEY || 'sentinel-dev-key';
+  let demoServer;
 
   beforeAll(async () => {
     await setupTestDB();
+    try {
+      await new Promise((resolve) => {
+        demoServer = demoApp.listen(5001, () => resolve());
+        demoServer.on('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            resolve();
+          }
+        });
+      });
+    } catch {
+      // Demo target already active
+    }
   }, 60000);
 
   afterAll(async () => {
+    if (demoServer && demoServer.listening) {
+      if (typeof demoServer.closeAllConnections === 'function') {
+        demoServer.closeAllConnections();
+      }
+      await new Promise((resolve) => demoServer.close(resolve));
+    }
     await teardownTestDB();
   }, 60000);
 

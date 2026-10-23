@@ -1,0 +1,43 @@
+services:
+  # SentinelAI Web Service (API + Static React Dashboard)
+  - type: web
+    name: sentinelai-web
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm --prefix client install && npm --prefix client run build && npm --prefix server install
+    startCommand: node server/src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: START_WORKER
+        value: "true"
+      - key: SENTINEL_API_KEY
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ALLOW_PRIVATE_TARGETS
+        value: "false"
+
+  # Optional Independent Background Worker (if decoupling worker from API)
+  # - type: worker
+  #   name: sentinelai-worker
+  #   env: node
+  #   plan: starter
+  #   region: oregon
+  #   buildCommand: npm install && npm --prefix server install
+  #   startCommand: node server/src/worker.js
+  #   envVars:
+  #     - key: NODE_ENV
+  #       value: production
+  #     - key: MONGODB_URI
+  #       sync: false
+  #     - key: REDIS_URL
+  #       sync: false
+  #     - key: ALLOW_PRIVATE_TARGETS
+  #       value: "false"

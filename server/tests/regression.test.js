@@ -21,6 +21,10 @@ describe('Baseline & Regression Testing Engine', () => {
     await teardownTestDB();
   });
 
+  afterEach(async () => {
+    await clearTestDB();
+  });
+
   beforeEach(async () => {
     // 1. Create target Application
     mockApp = await Application.create({

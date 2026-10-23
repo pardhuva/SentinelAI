@@ -4,7 +4,20 @@
  */
 
 const API_BASE = '/api';
-const API_KEY = import.meta.env?.VITE_SENTINEL_API_KEY || 'sentinel-dev-key';
+
+// Secure credential boundary:
+// Privileged server API keys and shared administrative secrets are strictly excluded from the browser bundle.
+// The browser communicates via a server-side reverse proxy / same-origin boundary, or with an ephemeral
+// in-memory session token explicitly provided by an authorized operator.
+let sessionApiKey = null;
+
+export function setSessionApiKey(key) {
+  sessionApiKey = key ? String(key).trim() : null;
+}
+
+export function getSessionApiKey() {
+  return sessionApiKey;
+}
 
 function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   let signal = options.signal;
@@ -17,7 +30,7 @@ function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   }
 
   const headers = {
-    'x-api-key': API_KEY,
+    ...(sessionApiKey ? { 'x-api-key': sessionApiKey } : {}),
     ...(options.headers || {}),
   };
 
