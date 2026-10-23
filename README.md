@@ -1,11 +1,12 @@
 # SentinelAI 🛡️
 > **Automated Security Testing, Vulnerability Triage & Regression Platform for LLM Applications**
 
-[![Tests](https://img.shields.io/badge/tests-68%20passed%20(8%20suites)-brightgreen.svg)](#-test-verification)
+[![Live Demo](https://img.shields.io/badge/demo-live%20on%20render-brightgreen?logo=render)](https://sentinelai-g2lk.onrender.com)
+[![Tests](https://img.shields.io/badge/tests-107%20passed%20(11%20suites)-brightgreen.svg)](#-test-verification)
 [![Node.js](https://img.shields.io/badge/node.js-v18%20%7C%20v20%20%7C%20v22-blue.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Architecture](https://img.shields.io/badge/architecture-Modular%20Monolith-orange.svg)](#-architecture-overview)
-[![Security Hardened](https://img.shields.io/badge/security-SSRF%20Hardened%20%26%20Auth%20Protected-blueviolet.svg)](#-security-hardening--ssrf-defenses)
+[![Security Hardened](https://img.shields.io/badge/security-P0%20Remediated%20%26%20SSRF%20Protected-blueviolet.svg)](#-security-hardening--ssrf-defenses)
 
 SentinelAI is an enterprise-grade automated security testing and regression analysis platform designed to evaluate AI-powered applications, chatbots, and LLM agent interfaces for adversarial vulnerabilities (prompt injection, jailbreaks, canary token leakage, unauthorized disclosure), capture verifiable forensic evidence, and **detect security regressions across prompt and model revisions**.
 
