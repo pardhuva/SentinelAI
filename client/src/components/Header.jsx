@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshIcon, PlayIcon } from './Icons';
+import { RefreshIcon, PlayIcon, MenuIcon } from './Icons';
 
 export default function Header({
   activeTab,
@@ -7,6 +7,8 @@ export default function Header({
   onRefresh,
   onQuickScan,
   isRefreshing = false,
+  onToggleMobileNav,
+  mobileNavOpen = false,
 }) {
   const getTabTitle = () => {
     switch (activeTab) {
@@ -26,16 +28,43 @@ export default function Header({
   return (
     <header className="content-topbar" role="banner">
       <div className="topbar-breadcrumb">
+        {onToggleMobileNav && (
+          <button
+            type="button"
+            className="mobile-nav-toggle-btn"
+            onClick={onToggleMobileNav}
+            aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileNavOpen}
+          >
+            <MenuIcon size={16} />
+          </button>
+        )}
         <span className="breadcrumb-root">SentinelAI</span>
         <span className="breadcrumb-sep">/</span>
         <span className="breadcrumb-current">{getTabTitle()}</span>
-        <span
-          className={`status-dot ${backendStatus === 'online' ? 'status-online' : 'status-pending'}`}
-          title={backendStatus === 'online' ? 'Engine Ready' : 'Connecting Engine...'}
-          style={{ marginLeft: '0.5rem' }}
-          aria-hidden="true"
-        />
+        <div
+          className={`header-status-badge status-${backendStatus}`}
+          title={`Backend Security Engine: ${backendStatus === 'online' ? 'Online & Ready' : backendStatus === 'offline' ? 'Offline (Cannot connect to API server)' : 'Connecting...'}`}
+          role="status"
+          aria-label={`Security engine status: ${backendStatus}`}
+        >
+          <span
+            className={`status-dot ${
+              backendStatus === 'online'
+                ? 'status-online'
+                : backendStatus === 'offline'
+                ? 'status-offline'
+                : 'status-pending'
+            }`}
+            aria-hidden="true"
+          />
+          <span className="status-badge-text">
+            {backendStatus === 'online' ? 'Engine Online' : backendStatus === 'offline' ? 'Engine Offline' : 'Connecting...'}
+          </span>
+        </div>
       </div>
+
+
 
       <div className="topbar-actions">
         {onRefresh && (

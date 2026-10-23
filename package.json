@@ -11,7 +11,8 @@
     "test:target": "npm --prefix demo-target test",
     "test": "npm run test:server && npm run test:target",
     "build:client": "npm --prefix client run build",
-    "scan:cli": "node bin/sentinel.js"
+    "scan:cli": "node bin/sentinel.js",
+    "scan:mitigated": "node bin/sentinel.js --mitigation"
   },
   "keywords": [
     "llm-security",

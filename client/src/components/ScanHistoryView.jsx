@@ -12,20 +12,23 @@ import {
 export default function ScanHistoryView({ scans = [], onSelectScan, onBaselineUpdated }) {
   const [selectedScanForDiff, setSelectedScanForDiff] = useState(null);
   const [settingBaselineId, setSettingBaselineId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleSetBaseline = async (applicationId, scanId) => {
     try {
+      setErrorMsg('');
       setSettingBaselineId(scanId);
       await setApplicationBaseline(applicationId, scanId);
       if (onBaselineUpdated) {
         onBaselineUpdated();
       }
     } catch (err) {
-      alert(`Failed to set baseline: ${err.message}`);
+      setErrorMsg(err.message || 'Failed to set application baseline.');
     } finally {
       setSettingBaselineId(null);
     }
   };
+
 
   const renderStatusBadge = (status) => {
     switch (status) {
@@ -98,8 +101,24 @@ export default function ScanHistoryView({ scans = [], onSelectScan, onBaselineUp
           <p className="panel-description">
             Complete audit trail of all adversarial evaluations, designated security baselines, and cross-revision verdicts.
           </p>
-        </div>
       </div>
+      </div>
+
+      {errorMsg && (
+        <div className="alert-banner alert-banner-error" role="alert" style={{ marginBottom: '1rem' }}>
+          <AlertCircleIcon size={16} />
+          <span>{errorMsg}</span>
+          <button
+            type="button"
+            className="search-clear-btn"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => setErrorMsg('')}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {scans.length === 0 ? (
         <div className="empty-state">
@@ -139,7 +158,7 @@ export default function ScanHistoryView({ scans = [], onSelectScan, onBaselineUp
                     <td>
                       <div className="app-name-baseline-group">
                         <span className="scan-app-name">
-                          {scan.applicationId?.name || 'Acme HR Assistant'}
+                          {scan.applicationId?.name || (typeof scan.applicationId === 'string' && scan.applicationId ? scan.applicationId : 'Target Application')}
                         </span>
                         {isBaseline && (
                           <span className="baseline-tag" title="Designated application baseline">

@@ -51,6 +51,23 @@ const ApplicationSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    securityProfile: {
+      type: String,
+      enum: ['general', 'hr', 'banking', 'healthcare', 'customer_support', 'custom'],
+      default: 'general',
+    },
+    enabledCategories: {
+      type: [String],
+      default: [],
+    },
+    disabledTestIds: {
+      type: [String],
+      default: [],
+    },
+    customTestCases: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
+    },
     currentBaselineScanId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Scan',

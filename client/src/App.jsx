@@ -32,15 +32,22 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSeedingDemo, setIsSeedingDemo] = useState(false);
+  const [selectedAppIdForScan, setSelectedAppIdForScan] = useState('');
+  const [scanFilterForFindings, setScanFilterForFindings] = useState('');
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const appMainRef = useRef(null);
 
   // Safety fallback: Ensure isLoading never hangs permanently
   const loadingTimeoutRef = useRef(null);
 
-  // Load all initial data from backend
+  // Load all initial data from backend (for manual refresh / updates)
   const loadDashboardData = useCallback(async () => {
     try {
       await fetchHealth();
       setBackendStatus('online');
+
 
       const [appsData, findingsData, summaryData, scansData] = await Promise.all([
         fetchApplications().catch(() => []),
@@ -62,25 +69,74 @@ export default function App() {
     }
   }, []);
 
+  // Safe initial hydration on component mount with cleanup
   useEffect(() => {
-    loadDashboardData();
+    let isMounted = true;
+
+    const initializeData = async () => {
+      try {
+        await fetchHealth();
+        if (!isMounted) return;
+        setBackendStatus('online');
+
+        const [appsData, findingsData, summaryData, scansData] = await Promise.all([
+          fetchApplications().catch(() => []),
+          fetchFindings().catch(() => []),
+          fetchFindingsSummary().catch(() => null),
+          fetchScans().catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+        setApplications(appsData);
+        setFindings(findingsData);
+        setSummary(summaryData);
+        setScans(scansData);
+      } catch (err) {
+        if (isMounted) {
+          console.error('Failed to load dashboard data:', err);
+          setBackendStatus('offline');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    initializeData();
 
     // 5-second safeguard timeout to guarantee the UI never gets stuck in a permanent loading state
     loadingTimeoutRef.current = setTimeout(() => {
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
     }, 5000);
 
     return () => {
+      isMounted = false;
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [loadDashboardData]);
+  }, []);
+
+  // Dismiss mobile drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await loadDashboardData();
   };
+
 
   // One-click demo target initialization for first-run onboarding
   const handleSeedDemoTarget = async () => {
@@ -142,12 +198,30 @@ export default function App() {
     setApplications((prev) => [newApp, ...prev]);
   };
 
-  const handleSelectForScan = (_appId) => {
-    setActiveTab('launcher');
+  const handleAppUpdated = (updatedApp) => {
+    setApplications((prev) =>
+      prev.map((app) => (app._id === updatedApp._id ? updatedApp : app))
+    );
   };
 
-  const handleSelectScanFindings = (_scanId) => {
-    setActiveTab('findings');
+  const handleNavigateTab = (tab) => {
+    setActiveTab(tab);
+    setMobileNavOpen(false);
+    appMainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const handleSelectForScan = (appId) => {
+    if (appId) {
+      setSelectedAppIdForScan(appId);
+    }
+    handleNavigateTab('launcher');
+  };
+
+  const handleSelectScanFindings = (scanId) => {
+    if (scanId) {
+      setScanFilterForFindings(scanId);
+    }
+    handleNavigateTab('findings');
   };
 
   const isFirstRun = applications.length === 0 && scans.length === 0;
@@ -157,23 +231,29 @@ export default function App() {
       {/* Persistent Left Navigation Sidebar */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleNavigateTab}
         backendStatus={backendStatus}
-        onQuickScan={() => setActiveTab('launcher')}
+        onQuickScan={() => handleNavigateTab('launcher')}
         findingsCount={findings.length}
         scansCount={scans.length}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
       />
 
       {/* Main Application Area */}
-      <div className="app-main">
+      <div className="app-main" ref={appMainRef}>
         {/* Contextual Topbar */}
         <Header
           activeTab={activeTab}
           backendStatus={backendStatus}
           onRefresh={handleRefresh}
-          onQuickScan={() => setActiveTab('launcher')}
+          onQuickScan={() => handleNavigateTab('launcher')}
           isRefreshing={isRefreshing}
+          onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)}
+          mobileNavOpen={mobileNavOpen}
         />
+
+
 
         {/* Content Body */}
         <main className="app-content-body">
@@ -218,12 +298,23 @@ export default function App() {
               <MetricCards summary={summary} totalScans={scans.length} />
 
               {/* First-Run Experience Section */}
-              {isFirstRun && backendStatus === 'online' && (
+              {!onboardingDismissed && isFirstRun && backendStatus === 'online' && (
                 <div className="first-run-banner" role="region" aria-label="First Run Onboarding">
                   <div className="first-run-header">
-                    <div className="first-run-badge">
-                      <ShieldIcon size={14} color="var(--accent-primary)" />
-                      <span>Getting Started</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div className="first-run-badge">
+                        <ShieldIcon size={14} color="var(--accent-primary)" />
+                        <span>Getting Started</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="search-clear-btn"
+                        onClick={() => setOnboardingDismissed(true)}
+                        title="Dismiss getting started banner"
+                        aria-label="Dismiss getting started banner"
+                      >
+                        ×
+                      </button>
                     </div>
                     <h3 className="first-run-title">
                       Welcome to SentinelAI Security Platform
@@ -288,7 +379,7 @@ export default function App() {
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() => setActiveTab('applications')}
+                      onClick={() => handleNavigateTab('applications')}
                     >
                       <PlusIcon size={13} />
                       <span>Register Custom Application</span>
@@ -304,15 +395,18 @@ export default function App() {
                   onFindingUpdated={handleFindingUpdated}
                   scansCount={scans.length}
                   backendStatus={backendStatus}
-                  onLaunchScan={() => setActiveTab('launcher')}
+                  onLaunchScan={() => handleNavigateTab('launcher')}
+                  activeScanFilter={scanFilterForFindings}
+                  onClearScanFilter={() => setScanFilterForFindings('')}
                 />
               )}
 
               {activeTab === 'launcher' && (
                 <ScanLauncher
                   applications={applications}
+                  initialAppId={selectedAppIdForScan}
                   onScanCompleted={handleScanCompleted}
-                  onNavigateToApps={() => setActiveTab('applications')}
+                  onNavigateToApps={() => handleNavigateTab('applications')}
                 />
               )}
 
@@ -320,6 +414,7 @@ export default function App() {
                 <ApplicationsView
                   applications={applications}
                   onAppCreated={handleAppCreated}
+                  onAppUpdated={handleAppUpdated}
                   onSelectForScan={handleSelectForScan}
                 />
               )}
@@ -331,6 +426,7 @@ export default function App() {
                   onBaselineUpdated={loadDashboardData}
                 />
               )}
+
             </>
           )}
         </main>

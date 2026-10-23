@@ -15,6 +15,8 @@ export default function Sidebar({
   onQuickScan,
   findingsCount = 0,
   scansCount = 0,
+  mobileOpen = false,
+  onCloseMobile,
 }) {
   const navItems = [
     {
@@ -43,33 +45,66 @@ export default function Sidebar({
     },
   ];
 
-  return (
-    <aside className="app-sidebar" aria-label="Main Navigation">
-      {/* Brand Header */}
-      <div className="sidebar-brand" onClick={() => setActiveTab('findings')}>
-        <div className="brand-logo">
-          <ShieldIcon size={18} color="var(--accent-primary)" />
-        </div>
-        <div className="brand-info">
-          <div className="brand-name">
-            Sentinel<span>AI</span>
-          </div>
-          <span className="brand-sub">LLM Security Platform</span>
-        </div>
-      </div>
+  const handleNavClick = (id) => {
+    setActiveTab(id);
+    if (onCloseMobile) onCloseMobile();
+  };
 
-      {/* Primary Action Button */}
-      <div className="sidebar-action-wrap">
-        <button
-          type="button"
-          className="btn-primary sidebar-scan-btn"
-          onClick={onQuickScan}
-          aria-label="Launch new security scan"
+  const handleQuickScanClick = () => {
+    if (onQuickScan) onQuickScan();
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  return (
+    <>
+      {mobileOpen && (
+        <div
+          className="sidebar-mobile-overlay"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`app-sidebar ${mobileOpen ? 'sidebar-mobile-open' : ''}`}
+        aria-label="Main Navigation"
+      >
+        {/* Brand Header */}
+        <div
+          className="sidebar-brand"
+          onClick={() => handleNavClick('findings')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleNavClick('findings');
+            }
+          }}
         >
-          <PlayIcon size={13} />
-          <span>New Security Scan</span>
-        </button>
-      </div>
+          <div className="brand-logo">
+            <ShieldIcon size={18} color="var(--accent-primary)" />
+          </div>
+          <div className="brand-info">
+            <div className="brand-name">
+              Sentinel<span>AI</span>
+            </div>
+            <span className="brand-sub">LLM Security Platform</span>
+          </div>
+        </div>
+
+        {/* Primary Action Button */}
+        <div className="sidebar-action-wrap">
+          <button
+            type="button"
+            className="btn-primary sidebar-scan-btn"
+            onClick={handleQuickScanClick}
+            aria-label="Launch new security scan"
+          >
+            <PlayIcon size={13} />
+            <span>New Security Scan</span>
+          </button>
+        </div>
+
 
       {/* Navigation Links */}
       <nav className="sidebar-nav">
@@ -83,7 +118,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => handleNavClick(item.id)}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   <span className="nav-item-icon">
@@ -106,20 +141,39 @@ export default function Sidebar({
       <div className="sidebar-footer">
         <div className="service-status">
           <span
-            className={`status-dot ${backendStatus === 'online' ? 'status-online' : 'status-pending'}`}
+            className={`status-dot ${
+              backendStatus === 'online'
+                ? 'status-online'
+                : backendStatus === 'offline'
+                ? 'status-offline'
+                : 'status-pending'
+            }`}
             aria-hidden="true"
           />
           <div className="status-text">
             <span className="status-label">
-              {backendStatus === 'online' ? 'Engine Ready' : 'Connecting Engine...'}
+              {backendStatus === 'online'
+                ? 'Engine Ready'
+                : backendStatus === 'offline'
+                ? 'Engine Offline'
+                : 'Connecting Engine...'}
             </span>
-            <span className="status-host">api :5000 • bullmq active</span>
+            <span className="status-host">
+              {backendStatus === 'online'
+                ? 'api :5000 • queue active'
+                : backendStatus === 'offline'
+                ? 'api :5000 • disconnected'
+                : 'api :5000 • checking...'}
+            </span>
           </div>
         </div>
+
         <div className="sidebar-version-tag">
           SentinelAI v0.1.0 (Core Engine)
         </div>
       </div>
     </aside>
+    </>
   );
 }
+

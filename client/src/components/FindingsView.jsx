@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { updateFinding } from '../api/client';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
+  CheckIcon,
+  CopyIcon,
   SearchIcon,
   FilterIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   InfoIcon,
-  CheckIcon,
 } from './Icons';
 
 export default function FindingsView({
@@ -17,6 +18,8 @@ export default function FindingsView({
   scansCount = 0,
   backendStatus = 'online',
   onLaunchScan,
+  activeScanFilter = '',
+  onClearScanFilter,
 }) {
   const [severityFilter, setSeverityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -24,17 +27,38 @@ export default function FindingsView({
   const [expandedId, setExpandedId] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // Filter findings based on severity, status, and search query
+  // Collapse expanded finding drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && expandedId !== null) {
+        setExpandedId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expandedId]);
+
+  // Filter findings based on active scan filter, severity, status, and search query
   const filteredFindings = findings.filter((f) => {
+    if (activeScanFilter) {
+      const scanIdStr = typeof f.scanId === 'object' && f.scanId !== null
+        ? String(f.scanId._id || '')
+        : String(f.scanId || '');
+      if (scanIdStr !== String(activeScanFilter)) return false;
+    }
     if (severityFilter !== 'all' && f.severity !== severityFilter) return false;
     if (statusFilter !== 'all' && f.status !== statusFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchTitle = f.title?.toLowerCase().includes(q);
-      const matchCat = f.category?.toLowerCase().includes(q);
-      const matchTestId = f.testCaseId?.toLowerCase().includes(q);
-      const matchApp = f.applicationId?.name?.toLowerCase().includes(q);
+      const matchTitle = (typeof f.title === 'string' ? f.title : '')?.toLowerCase().includes(q);
+      const matchCat = (typeof f.category === 'string' ? f.category : '')?.toLowerCase().includes(q);
+      const matchTestId = (typeof f.testCaseId === 'string' ? f.testCaseId : '')?.toLowerCase().includes(q);
+      const appNameFilter = typeof f.applicationId === 'object' && f.applicationId !== null
+        ? f.applicationId.name
+        : (typeof f.applicationId === 'string' ? f.applicationId : '');
+      const matchApp = appNameFilter?.toLowerCase().includes(q);
       if (!matchTitle && !matchCat && !matchTestId && !matchApp) return false;
     }
     return true;
@@ -42,11 +66,12 @@ export default function FindingsView({
 
   const handleStatusChange = async (findingId, newStatus) => {
     try {
+      setErrorMsg('');
       setUpdatingId(findingId);
       const updated = await updateFinding(findingId, { status: newStatus });
       onFindingUpdated(updated);
     } catch (err) {
-      alert(`Failed to update status: ${err.message}`);
+      setErrorMsg(err.message || 'Failed to update finding status.');
     } finally {
       setUpdatingId(null);
     }
@@ -67,6 +92,9 @@ export default function FindingsView({
     setSeverityFilter('all');
     setStatusFilter('all');
     setSearchQuery('');
+    if (onClearScanFilter) {
+      onClearScanFilter();
+    }
   };
 
   const renderSeverityBadge = (severity) => {
@@ -77,12 +105,6 @@ export default function FindingsView({
         {severity}
       </span>
     );
-  };
-
-  const renderStatusBadge = (status) => {
-    const formatted = status ? status.replace('_', ' ') : 'open';
-    const cls = `badge-status badge-status-${status?.replace('_', '-') || 'open'}`;
-    return <span className={cls}>{formatted}</span>;
   };
 
   return (
@@ -158,6 +180,45 @@ export default function FindingsView({
           </div>
         </div>
       </div>
+
+      {/* Active Scan Context Banner */}
+      {activeScanFilter && (
+        <div className="active-scan-banner">
+          <div className="active-scan-info">
+            <FilterIcon size={14} />
+            <span>
+              Showing findings filtered by scan <code className="mono-sub">{activeScanFilter}</code>
+            </span>
+          </div>
+          {onClearScanFilter && (
+            <button
+              type="button"
+              className="btn-clear-scan-filter"
+              onClick={onClearScanFilter}
+              aria-label="Show all findings"
+            >
+              Show All Findings ×
+            </button>
+          )}
+        </div>
+      )}
+
+
+      {errorMsg && (
+        <div className="alert-banner alert-banner-error" role="alert" style={{ marginBottom: '1rem' }}>
+          <AlertCircleIcon size={16} />
+          <span>{errorMsg}</span>
+          <button
+            type="button"
+            className="search-clear-btn"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => setErrorMsg('')}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Accurate Empty States Handling */}
       {backendStatus === 'offline' ? (
@@ -236,7 +297,47 @@ export default function FindingsView({
               {filteredFindings.map((finding) => {
                 const isExpanded = expandedId === finding._id;
                 const isUpdating = updatingId === finding._id;
-                const isCopied = copiedId === finding._id;
+
+                // Safe scalar extractions for scan and application references
+                const scanIdValue = typeof finding.scanId === 'object' && finding.scanId !== null
+                  ? (finding.scanId._id || 'N/A')
+                  : (finding.scanId || 'N/A');
+
+                const scanStatus = typeof finding.scanId === 'object' && finding.scanId !== null
+                  ? finding.scanId.status
+                  : null;
+
+                const scanCompletedDate = typeof finding.scanId === 'object' && finding.scanId?.completedAt
+                  ? new Date(finding.scanId.completedAt).toLocaleString()
+                  : null;
+
+                const appName = typeof finding.applicationId === 'object' && finding.applicationId !== null
+                  ? (finding.applicationId.name || finding.applicationId._id || 'Target Application')
+                  : (typeof finding.applicationId === 'string' && finding.applicationId ? finding.applicationId : 'Target Application');
+
+                const failedAssertionStr = typeof finding.failedAssertion === 'object' && finding.failedAssertion !== null
+                  ? (finding.failedAssertion.type || finding.failedAssertion.name || JSON.stringify(finding.failedAssertion))
+                  : (finding.failedAssertion ? String(finding.failedAssertion) : null);
+
+                const attackPromptStr = typeof finding.attackPrompt === 'object' && finding.attackPrompt !== null
+                  ? JSON.stringify(finding.attackPrompt, null, 2)
+                  : (finding.attackPrompt || '');
+
+                const observedOutputStr = typeof finding.observedOutput === 'object' && finding.observedOutput !== null
+                  ? JSON.stringify(finding.observedOutput, null, 2)
+                  : (finding.observedOutput || '');
+
+                const evidenceStr = typeof finding.evidence === 'object' && finding.evidence !== null
+                  ? JSON.stringify(finding.evidence, null, 2)
+                  : (finding.evidence || '');
+
+                const descriptionStr = typeof finding.description === 'object' && finding.description !== null
+                  ? JSON.stringify(finding.description)
+                  : (finding.description || 'No description provided.');
+
+                const remediationStr = typeof finding.remediation === 'object' && finding.remediation !== null
+                  ? JSON.stringify(finding.remediation, null, 2)
+                  : (finding.remediation ? String(finding.remediation) : '');
 
                 return (
                   <React.Fragment key={finding._id}>
@@ -263,7 +364,23 @@ export default function FindingsView({
 
                       <td>
                         <div className="finding-title-cell">
-                          <span className="finding-title">{finding.title}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                            <span className="finding-title">{finding.title}</span>
+                            <span
+                              className={`badge-confidence ${
+                                finding.confidence === 'direct_match'
+                                  ? 'badge-confidence-direct'
+                                  : 'badge-confidence-heuristic'
+                              }`}
+                              title={
+                                finding.confidence === 'direct_match'
+                                  ? 'Direct match: Canary token or explicit secret string verified in output.'
+                                  : 'Heuristic signal: Missing refusal phrase or constraint boundary deviation.'
+                              }
+                            >
+                              {finding.confidence === 'direct_match' ? 'Direct Evidence' : 'Heuristic Signal'}
+                            </span>
+                          </div>
                           <span className="finding-category-pill">
                             {finding.category}
                           </span>
@@ -278,15 +395,14 @@ export default function FindingsView({
 
                       <td>
                         <span className="finding-app-name">
-                          {finding.applicationId?.name || 'Acme HR Assistant'}
+                          {appName}
                         </span>
                       </td>
 
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div className="status-triage-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          {renderStatusBadge(finding.status)}
+                        <div className="status-triage-wrap">
                           <select
-                            className="form-select status-select"
+                            className={`form-select status-select-pill status-pill-${finding.status?.replace('_', '-') || 'open'}`}
                             value={finding.status}
                             disabled={isUpdating}
                             onChange={(e) => handleStatusChange(finding._id, e.target.value)}
@@ -297,62 +413,164 @@ export default function FindingsView({
                             <option value="resolved">Resolved</option>
                             <option value="false_positive">False Positive</option>
                           </select>
+                          {isUpdating && <span className="spinner-inline" style={{ marginLeft: '0.35rem' }} />}
                         </div>
                       </td>
                     </tr>
 
-                    {/* Expandable Evidence & Remediation Drawer */}
+                    {/* Expandable Evidence, Attack Vector & Remediation Drawer */}
                     {isExpanded && (
                       <tr className="finding-drawer-row">
                         <td colSpan={6}>
                           <div className="finding-drawer-content">
                             <div className="drawer-description-block">
-                              <h4 className="drawer-section-heading">Description</h4>
-                              <p className="drawer-text">{finding.description}</p>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                <div>
+                                  <h4 className="drawer-section-heading">Observed Vulnerability</h4>
+                                  <p className="drawer-text">{descriptionStr}</p>
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                  <span>
+                                    Scan:{' '}
+                                    <code
+                                      className="mono-sub"
+                                      title={
+                                        scanCompletedDate
+                                          ? `Scan: ${scanIdValue}\nCompleted: ${scanCompletedDate}`
+                                          : (scanIdValue !== 'N/A' ? `Scan: ${scanIdValue}` : undefined)
+                                      }
+                                    >
+                                      {scanIdValue}
+                                    </code>
+                                    {scanStatus && (
+                                      <span
+                                        className="badge-scan-status"
+                                        style={{
+                                          marginLeft: '0.45rem',
+                                          textTransform: 'capitalize',
+                                          opacity: 0.85,
+                                        }}
+                                        title={scanCompletedDate ? `Completed: ${scanCompletedDate}` : undefined}
+                                      >
+                                        ({scanStatus.replace('_', ' ')})
+                                      </span>
+                                    )}
+                                  </span>
+                                  {failedAssertionStr && (
+                                    <span style={{ marginLeft: '0.75rem' }}>
+                                      Failed Assertion:{' '}
+                                      <code
+                                        className="mono-sub"
+                                        title={typeof finding.failedAssertion === 'object' && finding.failedAssertion?.reason ? finding.failedAssertion.reason : undefined}
+                                      >
+                                        {failedAssertionStr}
+                                      </code>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
 
-                            <div className="drawer-grid">
-                              {/* Evidence Box */}
-                              <div className="evidence-panel">
-                                <div className="evidence-header">
-                                  <span className="evidence-label">
-                                    Captured Evidence & Violation Snippet
-                                  </span>
+                            {/* Attack Prompt & Observed Output Panels */}
+                            <div className="drawer-tri-grid">
+                              {/* Attack Prompt */}
+                              <div className="drawer-card-panel">
+                                <div className="drawer-card-header">
+                                  <span className="drawer-card-label">Adversarial Attack Prompt</span>
                                   <button
                                     type="button"
-                                    className="copy-snippet-btn"
-                                    onClick={() => handleCopyEvidence(finding._id, finding.evidence)}
-                                    aria-label="Copy evidence snippet"
+                                    className={`copy-snippet-btn ${copiedId === `prompt-${finding._id}` ? 'copied' : ''}`}
+                                    onClick={() => handleCopyEvidence(`prompt-${finding._id}`, attackPromptStr)}
+                                    aria-label="Copy attack prompt"
                                   >
-                                    {isCopied ? (
+                                    {copiedId === `prompt-${finding._id}` ? (
                                       <>
                                         <CheckIcon size={12} color="var(--color-success)" />
-                                        <span>Copied</span>
+                                        <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>Copied!</span>
                                       </>
                                     ) : (
-                                      <span>Copy</span>
+                                      <>
+                                        <CopyIcon size={12} />
+                                        <span>Copy</span>
+                                      </>
                                     )}
                                   </button>
                                 </div>
-                                <pre className="evidence-snippet">
-                                  <code>{finding.evidence || 'No raw violation evidence captured.'}</code>
+                                <pre className="drawer-code-block">
+                                  <code>{attackPromptStr || 'Prompt vector details not recorded.'}</code>
                                 </pre>
                               </div>
 
-                              {/* Remediation Advice */}
-                              {finding.remediation && (
-                                <div className="remediation-panel">
-                                  <div className="remediation-header">
-                                    <span className="remediation-label">
-                                      Prescriptive Security Remediation
-                                    </span>
-                                  </div>
-                                  <p className="remediation-body">
-                                    {finding.remediation}
-                                  </p>
+                              {/* Observed Model Response */}
+                              <div className="drawer-card-panel">
+                                <div className="drawer-card-header">
+                                  <span className="drawer-card-label">Observed Target Output</span>
+                                  <button
+                                    type="button"
+                                    className={`copy-snippet-btn ${copiedId === `output-${finding._id}` ? 'copied' : ''}`}
+                                    onClick={() => handleCopyEvidence(`output-${finding._id}`, observedOutputStr)}
+                                    aria-label="Copy observed output"
+                                  >
+                                    {copiedId === `output-${finding._id}` ? (
+                                      <>
+                                        <CheckIcon size={12} color="var(--color-success)" />
+                                        <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CopyIcon size={12} />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
+                                  </button>
                                 </div>
-                              )}
+                                <pre className="drawer-code-block" style={{ color: 'var(--color-critical)' }}>
+                                  <code>{observedOutputStr || 'No raw output snippet recorded.'}</code>
+                                </pre>
+                              </div>
+
+                              {/* Violation Reason / Analysis */}
+                              <div className="drawer-card-panel">
+                                <div className="drawer-card-header">
+                                  <span className="drawer-card-label">Violation Verification</span>
+                                  <button
+                                    type="button"
+                                    className={`copy-snippet-btn ${copiedId === `evidence-${finding._id}` ? 'copied' : ''}`}
+                                    onClick={() => handleCopyEvidence(`evidence-${finding._id}`, evidenceStr)}
+                                    aria-label="Copy violation evidence"
+                                  >
+                                    {copiedId === `evidence-${finding._id}` ? (
+                                      <>
+                                        <CheckIcon size={12} color="var(--color-success)" />
+                                        <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CopyIcon size={12} />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                                <pre className="drawer-code-block">
+                                  <code>{evidenceStr || 'No detailed assertion failure explanation captured.'}</code>
+                                </pre>
+                              </div>
                             </div>
+
+                            {/* Prescriptive Remediation Panel */}
+                            {remediationStr && (
+                              <div className="remediation-panel" style={{ marginTop: '0.875rem' }}>
+                                <div className="remediation-header">
+                                  <span className="remediation-label">
+                                    Prescriptive Security Remediation Guidance
+                                  </span>
+                                </div>
+                                <p className="remediation-body">
+                                  {remediationStr}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

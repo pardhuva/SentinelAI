@@ -1,5 +1,6 @@
 const express = require('express');
 const findingController = require('../controllers/finding.controller');
+const { validateObjectId } = require('../middleware/validate');
 
 const router = express.Router();
 
@@ -7,7 +8,7 @@ const router = express.Router();
 router.get('/summary', findingController.getSummary);
 
 router.get('/', findingController.listFindings);
-router.get('/:id', findingController.getFinding);
-router.patch('/:id', findingController.updateFinding);
+router.get('/:id', validateObjectId(['id']), findingController.getFinding);
+router.patch('/:id', validateObjectId(['id']), findingController.updateFinding);
 
 module.exports = router;

@@ -1,7 +1,7 @@
 const { Scan, TestResult, Finding, Application } = require('../models');
 const { createTargetAdapter } = require('../providers');
 const { defaultEvaluator } = require('../evaluators');
-const { getAllTestCases } = require('./test-library');
+const { getAllTestCases, getTestCasesForApplication } = require('./test-library');
 const RegressionEngine = require('./RegressionEngine');
 
 /**
@@ -16,6 +16,12 @@ function getRemediationAdvice(category) {
       return 'Implement strict input delimitation, system instruction boundaries, and pre-execution adversarial input classifiers. Do not allow untrusted user input to directly control execution directives.';
     case 'data_leakage':
       return 'Ensure system instructions, confidential tokens, and database credentials are removed from prompts or protected with post-generation redaction filters. Use canary token monitoring to detect leakage.';
+    case 'unauthorized_disclosure':
+      return 'Enforce strict role-based access control and tenant isolation before passing context to the LLM. Do not rely on prompt-level instructions to hide confidential records from unauthorized users.';
+    case 'privilege_escalation':
+      return 'Require independent deterministic authorization (e.g. 2FA, approval gates) for transactional or administrative operations. Never grant autonomous tool execution based solely on conversational directives.';
+    case 'pii_leakage':
+      return 'Implement client-side and post-generation PII scrubbing filters (e.g. Presidio or regex-based masking) to prevent protected personal or health information from rendering in completions.';
     default:
       return 'Review prompt structure and apply defense-in-depth output validation guards.';
   }
@@ -64,7 +70,7 @@ class ScanEngine {
     scan.startedAt = new Date();
     await scan.save();
 
-    const testCases = options.testCases || getAllTestCases();
+    const testCases = options.testCases || getTestCasesForApplication(application);
     scan.totalTests = testCases.length;
     await scan.save();
 
@@ -138,15 +144,20 @@ class ScanEngine {
       // If failed, generate a Finding
       if (evalResult.verdict === 'failed') {
         scan.failedCount += 1;
+        const confidenceLabel = evalResult.confidence === 'direct_match' ? 'Direct Evidence' : 'Heuristic Signal';
         await Finding.create({
           applicationId: application._id,
           scanId: scan._id,
           testResultId: testResult._id,
           testCaseId: testCase.id,
-          title: `Security Finding: ${testCase.name}`,
+          title: `Security Finding: ${testCase.name} (${confidenceLabel})`,
           description: testCase.description,
           category: testCase.category,
           severity: testCase.severity,
+          confidence: evalResult.confidence || 'direct_match',
+          attackPrompt: testCase.input,
+          failedAssertion: evalResult.failedAssertion || 'assertion_failure',
+          observedOutput: (targetResponse.output || '').slice(0, 500),
           evidence: evalResult.evidence || 'Vulnerability detected during assertion evaluation.',
           remediation: getRemediationAdvice(testCase.category),
           status: 'open',

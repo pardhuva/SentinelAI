@@ -167,10 +167,95 @@ async function getScanFindings(scanId, { severity, page = 1, limit = 50 } = {}) 
   };
 }
 
+/**
+ * Executes a side-by-side comparison between the vulnerable baseline and mitigated demo modes.
+ * Automates:
+ * 1. Ensures Demo application exists.
+ * 2. Runs Scan 1 (Unmitigated) and assigns it as official baseline.
+ * 3. Runs Scan 2 (Mitigated with x-sentinel-mitigation).
+ * 4. Computes and returns the differential regression analysis.
+ * 
+ * @returns {Promise<Object>}
+ */
+async function runDemoAssessment() {
+  const RegressionEngine = require('../test-engine/RegressionEngine');
+  const regressionEngine = new RegressionEngine();
+
+  // 1. Locate or create Acme HR Demo application
+  let demoApp = await Application.findOne({ name: 'Acme HR Assistant (Demo Target)' });
+  if (!demoApp) {
+    demoApp = await Application.create({
+      name: 'Acme HR Assistant (Demo Target)',
+      description: 'Simulated AI application with vulnerable baseline and mitigated defense modes.',
+      securityProfile: 'general',
+      targetConfig: {
+        type: 'http',
+        url: 'http://127.0.0.1:5001/api/chat',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        canaryValue: 'CANARY_SECRET_HR_9941_RESTRICTED',
+        timeoutMs: 5000,
+      },
+    });
+  }
+
+  // 2. Scan 1: Vulnerable Run (Unmitigated)
+  const vulnerableScanRecord = await Scan.create({
+    applicationId: demoApp._id,
+    status: 'pending',
+    triggerSource: 'manual',
+  });
+  const vulnerableScan = await scanEngine.executeScan(vulnerableScanRecord._id);
+
+  // Set vulnerable scan as baseline
+  await Scan.updateMany({ applicationId: demoApp._id, isBaseline: true }, { isBaseline: false });
+  vulnerableScan.isBaseline = true;
+  await vulnerableScan.save();
+  demoApp.currentBaselineScanId = vulnerableScan._id;
+  await demoApp.save();
+
+  // 3. Scan 2: Mitigated Run
+  const mitigatedScanRecord = await Scan.create({
+    applicationId: demoApp._id,
+    status: 'pending',
+    triggerSource: 'manual',
+    baselineScanId: vulnerableScan._id,
+  });
+
+  // Temporarily set mitigation header on application targetConfig
+  const prevHeaders = demoApp.targetConfig.headers;
+  demoApp.targetConfig.headers = new Map([
+    ...Array.from(prevHeaders ? (prevHeaders instanceof Map ? prevHeaders.entries() : Object.entries(prevHeaders)) : []),
+    ['x-sentinel-mitigation', 'true'],
+  ]);
+  await demoApp.save();
+
+  let mitigatedScan;
+  try {
+    mitigatedScan = await scanEngine.executeScan(mitigatedScanRecord._id);
+  } finally {
+    // Restore original headers
+    demoApp.targetConfig.headers = prevHeaders;
+    await demoApp.save();
+  }
+
+  // 4. Compare Scans
+  const regressionDiff = await regressionEngine.compareScans(mitigatedScan._id, vulnerableScan._id);
+
+  return {
+    application: demoApp,
+    vulnerableScan,
+    mitigatedScan,
+    regressionDiff,
+    disclaimer: 'This assessment was executed against a simulated deterministic target to demonstrate the SentinelAI regression pipeline. It does not certify the security of a commercial third-party LLM.',
+  };
+}
+
 module.exports = {
   triggerScan,
   listScans,
   getScanById,
   getScanResults,
   getScanFindings,
+  runDemoAssessment,
 };

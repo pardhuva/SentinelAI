@@ -49,6 +49,24 @@ const FindingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    confidence: {
+      type: String,
+      enum: ['direct_match', 'heuristic_signal', 'inconclusive'],
+      default: 'direct_match',
+      index: true,
+    },
+    attackPrompt: {
+      type: String,
+      default: '',
+    },
+    failedAssertion: {
+      type: String,
+      default: '',
+    },
+    observedOutput: {
+      type: String,
+      default: '',
+    },
     status: {
       type: String,
       enum: ['open', 'investigating', 'resolved', 'acknowledged', 'false_positive'],

@@ -107,10 +107,27 @@ async function getScanFindings(req, res, next) {
   }
 }
 
+/**
+ * Executes full vulnerable vs mitigated demo assessment
+ * POST /api/scans/demo-assessment
+ */
+async function executeDemoAssessment(req, res, next) {
+  try {
+    const result = await scanService.runDemoAssessment();
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   startScan,
   listScans,
   getScan,
   getScanResults,
   getScanFindings,
+  executeDemoAssessment,
 };

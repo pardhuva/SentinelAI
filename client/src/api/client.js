@@ -1,11 +1,12 @@
 /**
  * SentinelAI API Client
- * Interacts with backend Express REST API via Vite proxy
+ * Interacts with backend Express REST API via Vite proxy with authentication and timeout management.
  */
 
 const API_BASE = '/api';
+const API_KEY = import.meta.env?.VITE_SENTINEL_API_KEY || 'sentinel-dev-key';
 
-function fetchWithTimeout(url, options = {}, timeoutMs = 6000) {
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   let signal = options.signal;
   if (!signal && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
     try {
@@ -14,7 +15,13 @@ function fetchWithTimeout(url, options = {}, timeoutMs = 6000) {
       // Fallback if timeout throws
     }
   }
-  return fetch(url, { ...options, signal });
+
+  const headers = {
+    'x-api-key': API_KEY,
+    ...(options.headers || {}),
+  };
+
+  return fetch(url, { ...options, headers, signal });
 }
 
 async function handleResponse(res) {
@@ -39,9 +46,23 @@ export async function fetchApplications() {
   return handleResponse(res);
 }
 
+export async function fetchProfiles() {
+  const res = await fetchWithTimeout(`${API_BASE}/applications/profiles`);
+  return handleResponse(res);
+}
+
 export async function createApplication(payload) {
   const res = await fetchWithTimeout(`${API_BASE}/applications`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function updateApplication(applicationId, payload) {
+  const res = await fetchWithTimeout(`${API_BASE}/applications/${applicationId}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
@@ -53,7 +74,15 @@ export async function triggerScan({ applicationId, triggerSource = 'manual', syn
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ applicationId, triggerSource, sync }),
-  }, 10000);
+  }, 15000);
+  return handleResponse(res);
+}
+
+export async function runDemoAssessment() {
+  const res = await fetchWithTimeout(`${API_BASE}/scans/demo-assessment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  }, 30000);
   return handleResponse(res);
 }
 

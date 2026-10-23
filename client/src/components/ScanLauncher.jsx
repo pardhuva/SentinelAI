@@ -1,25 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { triggerScan, fetchScan, fetchScanResults } from '../api/client';
+import { triggerScan, fetchScan, fetchScanResults, runDemoAssessment } from '../api/client';
+import RegressionDiffModal from './RegressionDiffModal';
 import {
   PlayIcon,
   CheckCircleIcon,
   AlertCircleIcon,
+  AlertTriangleIcon,
   CheckIcon,
   XIcon,
   LayersIcon,
 } from './Icons';
 
-export default function ScanLauncher({ applications = [], onScanCompleted, onNavigateToApps }) {
-  const [selectedAppId, setSelectedAppId] = useState('');
+export default function ScanLauncher({
+  applications = [],
+  initialAppId = '',
+  onScanCompleted,
+  onNavigateToApps,
+}) {
+  const [selectedAppId, setSelectedAppId] = useState(initialAppId || '');
+  const [prevInitialAppId, setPrevInitialAppId] = useState(initialAppId);
   const [isScanning, setIsScanning] = useState(false);
+  const [isDemoRunning, setIsDemoRunning] = useState(false);
+  const [demoDiffScanId, setDemoDiffScanId] = useState(null);
   const [activeScan, setActiveScan] = useState(null);
   const [scanResults, setScanResults] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
 
   const pollIntervalRef = useRef(null);
 
+  // Synchronize when initialAppId prop changes
+  if (initialAppId && initialAppId !== prevInitialAppId) {
+    setPrevInitialAppId(initialAppId);
+    setSelectedAppId(initialAppId);
+  }
+
   const activeAppId = selectedAppId || applications[0]?._id || '';
   const selectedApp = applications.find((a) => a._id === activeAppId);
+
 
   // Poll active scan status
   useEffect(() => {
@@ -78,6 +95,24 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
     }
   };
 
+  const handleRunDemoAssessment = async () => {
+    try {
+      setIsDemoRunning(true);
+      setErrorMsg('');
+      const result = await runDemoAssessment();
+      if (result?.mitigatedScan?._id) {
+        setDemoDiffScanId(result.mitigatedScan._id);
+        if (onScanCompleted) {
+          onScanCompleted(result.mitigatedScan);
+        }
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to run demo assessment comparison.');
+    } finally {
+      setIsDemoRunning(false);
+    }
+  };
+
   const hasMitigation =
     selectedApp?.targetConfig?.headers?.['x-sentinel-mitigation'] === 'true' ||
     Boolean(selectedApp?.targetConfig?.headers?.['x-sentinel-mitigation']);
@@ -93,6 +128,36 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
           <p className="panel-description">
             Run automated adversarial test suites against registered AI endpoints to assess prompt injection and secret leakage.
           </p>
+        </div>
+      </div>
+
+      {/* Side-by-Side Demo Comparison Callout */}
+      <div className="demo-assessment-banner">
+        <div className="demo-assessment-info">
+          <span className="demo-assessment-title">
+            <PlayIcon size={14} />
+            <span>Vulnerable vs. Mitigated Demo Comparison</span>
+          </span>
+          <span className="demo-assessment-desc">
+            Executes unmitigated baseline scan followed by defense-mitigated scan against the Acme HR simulator, computing side-by-side regression analysis.
+          </span>
+        </div>
+        <div className="demo-assessment-action">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleRunDemoAssessment}
+            disabled={isScanning || isDemoRunning}
+          >
+            {isDemoRunning ? (
+              <>
+                <span className="spinner-inline" />
+                <span>Running Comparison...</span>
+              </>
+            ) : (
+              <span>Run Demo Comparison</span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -140,12 +205,12 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
                 id="target-app-select"
                 className="form-select"
                 value={activeAppId}
-                disabled={isScanning}
+                disabled={isScanning || isDemoRunning}
                 onChange={(e) => setSelectedAppId(e.target.value)}
               >
                 {applications.map((app) => (
                   <option key={app._id} value={app._id}>
-                    {app.name} — {app.targetConfig?.url}
+                    {app.name} — {app.targetConfig?.url} ({app.securityProfile || 'general'})
                   </option>
                 ))}
               </select>
@@ -155,7 +220,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
               type="button"
               className="btn-primary launcher-execute-btn"
               onClick={handleStartScan}
-              disabled={isScanning || !activeAppId}
+              disabled={isScanning || isDemoRunning || !activeAppId}
             >
               {isScanning ? (
                 <>
@@ -178,6 +243,12 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
                 <span className="spec-label">Target Endpoint</span>
                 <span className="spec-value spec-mono">
                   {selectedApp.targetConfig?.url}
+                </span>
+              </div>
+              <div className="spec-item">
+                <span className="spec-label">Security Profile</span>
+                <span className="spec-value" style={{ textTransform: 'capitalize' }}>
+                  {selectedApp.securityProfile ? selectedApp.securityProfile.replace('_', ' ') : 'General'}
                 </span>
               </div>
               <div className="spec-item">
@@ -289,6 +360,7 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
               <tbody>
                 {scanResults.map((r) => {
                   const isPassed = r.verdict === 'passed';
+                  const isError = r.verdict === 'error';
                   return (
                     <tr key={r._id || r.testCaseId}>
                       <td>
@@ -307,9 +379,23 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
                         </span>
                       </td>
                       <td>
-                        <span className={`verdict-pill ${isPassed ? 'verdict-passed' : 'verdict-failed'}`}>
-                          {isPassed ? <CheckIcon size={12} /> : <XIcon size={12} />}
-                          <span>{isPassed ? 'Passed' : 'Failed'}</span>
+                        <span
+                          className={`verdict-pill ${
+                            isPassed
+                              ? 'verdict-passed'
+                              : isError
+                              ? 'verdict-error'
+                              : 'verdict-failed'
+                          }`}
+                        >
+                          {isPassed ? (
+                            <CheckIcon size={12} />
+                          ) : isError ? (
+                            <AlertTriangleIcon size={12} />
+                          ) : (
+                            <XIcon size={12} />
+                          )}
+                          <span>{isPassed ? 'Passed' : isError ? 'Target Error' : 'Failed'}</span>
                         </span>
                       </td>
                       <td>
@@ -318,11 +404,21 @@ export default function ScanLauncher({ applications = [], onScanCompleted, onNav
                     </tr>
                   );
                 })}
+
               </tbody>
             </table>
           </div>
         </div>
       )}
+
+      {/* Regression Diff Modal for Side-by-Side Assessment Results */}
+      {demoDiffScanId && (
+        <RegressionDiffModal
+          scanId={demoDiffScanId}
+          onClose={() => setDemoDiffScanId(null)}
+        />
+      )}
     </div>
   );
 }
+

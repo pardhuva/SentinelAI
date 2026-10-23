@@ -1,12 +1,13 @@
 # SentinelAI 🛡️
-> **Developer-Focused LLM Security Testing, Vulnerability Triage & Regression Platform**
+> **Automated Security Testing, Vulnerability Triage & Regression Platform for LLM Applications**
 
-[![Tests](https://img.shields.io/badge/tests-48%20passed-brightgreen.svg)](#-test-verification)
+[![Tests](https://img.shields.io/badge/tests-68%20passed%20(8%20suites)-brightgreen.svg)](#-test-verification)
 [![Node.js](https://img.shields.io/badge/node.js-v18%20%7C%20v20%20%7C%20v22-blue.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Architecture](https://img.shields.io/badge/architecture-Modular%20Monolith-orange.svg)](#-architecture-overview)
+[![Security Hardened](https://img.shields.io/badge/security-SSRF%20Hardened%20%26%20Auth%20Protected-blueviolet.svg)](#-security-hardening--ssrf-defenses)
 
-SentinelAI is an enterprise-grade developer platform designed to test AI-powered applications, chatbots, and LLM agents for security vulnerabilities (prompt injection, system instruction overrides, sensitive data disclosure), capture verifiable evidence, and **detect security regressions across prompt and model iterations**.
+SentinelAI is an enterprise-grade automated security testing and regression analysis platform designed to evaluate AI-powered applications, chatbots, and LLM agent interfaces for adversarial vulnerabilities (prompt injection, jailbreaks, canary token leakage, unauthorized disclosure), capture verifiable forensic evidence, and **detect security regressions across prompt and model revisions**.
 
 ---
 
@@ -15,15 +16,20 @@ SentinelAI is an enterprise-grade developer platform designed to test AI-powered
 ```
                                   ┌────────────────────────────────────────┐
                                   │       React Dashboard (Vite)           │
-                                  │  - 4 Real-time KPI Metric Cards        │
-                                  │  - Live Polling Progress Bar (0%->100%)│
-                                  │  - Vulnerability Triage State Machine  │
+                                  │  - Warm-White / Forest-Green Design    │
+                                  │  - Confidence Badges (Direct/Heuristic)│
+                                  │  - 1-Click Demo Comparison Workflow    │
+                                  │  - Domain Security Profile Selector    │
                                   │  - Side-by-Side Regression Diff Modal  │
                                   └───────────────────┬────────────────────┘
                                                       │ HTTP / REST Proxy (Port 3000 -> 5000)
+                                                      │ Header: x-api-key
                                                       ▼
                                   ┌────────────────────────────────────────┐
                                   │      Express REST API Backend          │
+                                  │  - Helmet Security Headers & Rate Limit│
+                                  │  - API Key & Bearer Token Auth         │
+                                  │  - Strict ObjectId & Pagination Sanit. │
                                   │  /api/health      /api/applications    │
                                   │  /api/scans       /api/findings        │
                                   └─────────┬───────────────────┬──────────┘
@@ -44,16 +50,26 @@ SentinelAI is an enterprise-grade developer platform designed to test AI-powered
                                              │ Executes Tests & Updates Progress
                                              ▼
                              ┌────────────────────────────────┐
-                             │    Target Application / App    │
-                             │   (e.g., Acme HR Assistant)    │
+                             │    SSRF Protection Engine      │
+                             │  - DNS Resolution Pre-flight   │
+                             │  - Blocks Loopback & Private   │
+                             │  - Blocks Metadata 169.254.x.x │
+                             │  - Safe Hop-by-Hop Redirects   │
+                             └───────────────┬────────────────┘
+                                             │ Verified Safe Outbound Request
+                                             ▼
+                             ┌────────────────────────────────┐
+                             │    Target AI Application       │
+                             │  (e.g., Acme HR Assistant)     │
                              └───────────────┬────────────────┘
                                              │ Returns Raw Inference Output
                                              ▼
                              ┌────────────────────────────────┐
-                             │       Evaluation Engine        │
-                             │  - Deterministic Canary Match  │
-                             │  - Forbidden String Assertions │
-                             │  - Contextual Evidence Snippet │
+                             │  Deterministic Evaluator       │
+                             │  - Canary & Secret Disclosure  │
+                             │  - Forbidden Strings & ReDoS   │
+                             │  - Output Length Constraints   │
+                             │  - Confidence Classification   │
                              └───────────────┬────────────────┘
                                              │
                                              ▼
@@ -61,7 +77,7 @@ SentinelAI is an enterprise-grade developer platform designed to test AI-powered
                              │       Regression Engine        │
                              │  - Baseline vs Target Diff     │
                              │  - REGRESSED / IMPROVED Verdict│
-                             │  - Pass Rate & Latency Deltas  │
+                             │  - VERSION_CHANGED / REMOVED   │
                              └────────────────────────────────┘
 ```
 
@@ -69,35 +85,55 @@ SentinelAI is an enterprise-grade developer platform designed to test AI-powered
 
 ## ✨ Key Features & Capabilities
 
-1. **Target Adapter Pattern (`BaseTargetAdapter` & `HttpTargetAdapter`)**:
-   - Normalized schema for any AI target API.
-   - SSRF protocol sanitization (`http` and `https` only; rejects `file://`, `ftp://`).
-   - AbortController request timeouts and retryable error classification (`ECONNREFUSED`, `ETIMEDOUT`).
-2. **Deterministic Evaluation Engine (`DeterministicEvaluator`)**:
-   - Zero external paid API dependencies required for evaluations.
-   - Assertions: `not_contains_canary`, `forbidden_strings`, `required_strings_any`, `regex_forbidden`, `json_valid`.
-   - Distinguishes between **Security Vulnerabilities** (`failed`) vs. **Target Outages** (`error`).
-   - Extracts 40-character contextual violation snippets as auditable evidence.
-3. **Asynchronous Processing Pipeline (`BullMQ` & `Redis`)**:
-   - Background worker with concurrency of 2.
-   - Exponential backoff retry policy (`attempts: 3`, delay: 1000ms).
-   - Real-time job progress reporting and automatic recovery on worker failure.
-   - Zero-dependency in-memory queue fallback for offline dev and deterministic testing.
-4. **Findings Triage Management**:
-   - Triage state machine: `open` $\to$ `investigating` $\to$ `resolved` $\to$ `false_positive`.
-   - Aggregated KPI metrics: Critical Count, High/Medium Count, Remediation Rate %.
-5. **Differential Regression Testing (`RegressionEngine`)**:
-   - Designate any completed scan as the official **Baseline**.
-   - Compares prompt revisions and detects **Security Regressions** (tests that passed in baseline but now fail!).
-   - Computes overall verdict (`REGRESSED`, `IMPROVED`, `UNCHANGED`).
-6. **Modern Cybersecurity React Dashboard (Vite)**:
-   - Deep slate aesthetic (`#080C14`), glassmorphism navigation, severity color tokens.
-   - One-click scan launcher with live progress bar and individual test breakdown table.
-7. **Automated CLI Security Scanner (`bin/sentinel.js`)**:
-   - Standalone terminal command for CI/CD integration.
-   - Exits with status code `1` if vulnerabilities or regressions are found.
-8. **GitHub Actions CI/CD Pipeline (`.github/workflows/security-scan.yml`)**:
-   - Automatically gates pull requests on prompt injection and canary confidentiality tests.
+### 1. Application-Specific Security Testing Profiles
+Configure security test suites calibrated for specific application domains without claiming proof of universal industry fitness:
+- **General / Common**: Universal prompt injection vectors, developer mode jailbreaks, benign baseline, and canary token tripwire.
+- **Banking & Finance**: Unauthorized account balance and customer PII disclosure (`SEC-BANK-001`), unauthorized wire transfers and supervisor limit bypass (`SEC-BANK-002`).
+- **Healthcare & Clinical**: Protected Health Information (PHI) disclosure (`SEC-HEALTH-001`), unauthorized medication dosage overrides (`SEC-HEALTH-002`).
+- **HR & People Ops**: Confidential executive compensation leakage (`SEC-HR-001`), confidential recruitment guidelines.
+- **Customer Support & CRM**: Cross-tenant ticket data isolation (`SEC-CS-001`), arbitrary refund and credit generation (`SEC-CS-002`).
+- **Custom Application Rules**: Register bespoke test cases with strict schema validation and version tracking.
+- **Granular Category Filtering**: Enable or disable specific test categories or test IDs per application.
+
+### 2. Deterministic Evaluator & Evidence Classification
+- **Direct Evidence vs. Heuristic Signals**:
+  - `direct_match`: Exact canary token match or verified forbidden secret leakage. A refusal phrase like *"cannot"* does NOT override a canary leak.
+  - `heuristic_signal`: Deviation from safe refusal conditions (e.g. model responded without standard policy disclaimers).
+- **Supported Assertion Types**:
+  - `not_contains_canary`: Ensures synthetic secret never appears in output.
+  - `forbidden_strings`: Exact strings or substring patterns that must not appear.
+  - `required_strings_any`: Safe refusal words that must be present in model replies.
+  - `regex_forbidden`: Regular expression matching protected by 200-char ReDoS length guards.
+  - `output_length_constraints`: Enforces min/max character limits to detect empty refusal bypasses or data dumps.
+  - `json_valid`: Verifies deterministic structured output formatting.
+- **Clear Error Attribution**: Distinguishes target infrastructure errors (timeout, connection refused, 500) from security test failures.
+
+### 3. Vulnerability Findings & Triage Experience
+- Displays target application, scan ID, test ID, and version.
+- Captures the exact **adversarial attack prompt** and **observed target output**.
+- Records the failed assertion schema and specific reason for failure.
+- Confidence badge: `[Direct Evidence]` in red vs `[Heuristic Signal]` in amber.
+- Prescriptive security remediation guidance tailored to each vulnerability category.
+- Full triage lifecycle: `open` $\to$ `investigating` $\to$ `resolved` $\to$ `false_positive`.
+
+### 4. Vulnerable vs. Mitigated Demo Comparison
+- **1-Click Comparison**: Automates vulnerable scan $\to$ baseline designation $\to$ mitigated scan $\to$ side-by-side regression diff.
+- Real defense mechanism: Acme HR target inspects `x-sentinel-mitigation: true` to enforce XML delimiter boundaries (`<system>`, `<user>`) and refusal filters.
+- **Important Disclaimer**: The demo simulates the platform testing workflow; it demonstrates regression detection and does not certify the security of a commercial third-party LLM.
+
+### 5. Security Hardening & SSRF Defenses
+- **SSRF Protection**:
+  - Pre-flight DNS resolution validates all resolved destination IPs.
+  - Blocks cloud metadata service addresses (`169.254.169.254`) unconditionally.
+  - Blocks loopback (`127.0.0.0/8`, `::1`), private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), and carrier-grade NAT (`100.64.0.0/10`) in strict mode.
+  - Safe redirect inspector checks resolved IPs on each redirect hop (max 3 hops) to prevent redirect SSRF and DNS rebinding attacks.
+- **API Authentication**:
+  - Protects `/api/applications`, `/api/scans`, and `/api/findings` via `x-api-key` header or `Authorization: Bearer <key>`.
+  - Public health check endpoint remains accessible for uptime monitoring.
+- **Input Sanitization & DoS Defense**:
+  - MongoDB ObjectId parameter validator rejects malformed identifiers before database queries.
+  - Request body limits (`500kb`) and in-memory sliding-window rate limiter (200 req/min).
+  - Helmet security headers and strict CORS configuration.
 
 ---
 
@@ -112,39 +148,44 @@ sentinelai/
 │   └── sentinel.js             # Standalone CLI security scanner runner
 ├── client/                     # React Vite frontend dashboard
 │   ├── src/
-│   │   ├── api/client.js       # Backend REST client
+│   │   ├── api/client.js       # Authenticated REST client with timeout handling
 │   │   ├── components/
-│   │   │   ├── ApplicationsView.jsx    # Application inventory & registration
-│   │   │   ├── FindingsView.jsx        # Vulnerability list & triage state machine
+│   │   │   ├── ApplicationsView.jsx    # Application inventory with profile selection
+│   │   │   ├── FindingsView.jsx        # Findings table with direct/heuristic badges & drawer
 │   │   │   ├── Header.jsx              # Navbar & live engine indicator
 │   │   │   ├── MetricCards.jsx         # 4 KPI overview cards
 │   │   │   ├── RegressionDiffModal.jsx # Side-by-side baseline diff inspector
 │   │   │   ├── ScanHistoryView.jsx     # Historical scan audit log & baseline selector
-│   │   │   └── ScanLauncher.jsx        # One-click scan launcher with live progress
+│   │   │   └── ScanLauncher.jsx        # 1-click scan & demo comparison launcher
 │   │   ├── App.jsx             # Master application coordinator
-│   │   ├── index.css           # Cybersecurity Dark Design System
+│   │   ├── index.css           # Warm-white / Forest-green design tokens
 │   │   └── main.jsx
 │   ├── vite.config.js          # Port 3000 dev server with /api proxy to 5000
 │   └── package.json
 ├── demo-target/                # Simulated AI Application (Acme HR Assistant)
 │   ├── src/
-│   │   ├── app.js              # Express chat endpoint on port 5001
+│   │   ├── app.js              # Express chat endpoint with delimiter mitigation
 │   │   └── config.js           # Synthetic canary secret & system instructions
 │   └── tests/                  # Demo target injection tests
 ├── server/                     # SentinelAI Express REST Backend
 │   ├── src/
 │   │   ├── config/             # Environment & Redis connection factory
 │   │   ├── controllers/        # REST route handlers
-│   │   ├── evaluators/         # Multi-assertion evaluation engine
-│   │   ├── models/             # Mongoose schemas: Application, Scan, TestResult, Finding
-│   │   ├── providers/          # Target HTTP adapters with SSRF protection
+│   │   ├── evaluators/         # DeterministicEvaluator with ReDoS & length checks
+│   │   ├── middleware/         # auth.js, rateLimiter.js, validate.js, errorHandler.js
+│   │   ├── models/             # Application, Scan, TestResult, Finding
+│   │   ├── providers/          # HttpTargetAdapter & ssrfValidator.js
 │   │   ├── queues/             # BullMQ queue producer & in-memory queue fallback
-│   │   ├── routes/             # Express API route declarations
-│   │   ├── services/           # Business logic & aggregation services
-│   │   ├── test-engine/        # ScanEngine, RegressionEngine & versioned test library
+│   │   ├── routes/             # Express API routes
+│   │   ├── services/           # scan.service.js, finding.service.js, demoAssessment
+│   │   ├── test-engine/        # ScanEngine, RegressionEngine & domain test profiles
+│   │   │   └── test-library/
+│   │   │       ├── profiles/   # common, banking, healthcare, hr, customer-support
+│   │   │       └── index.js
 │   │   ├── workers/            # Background BullMQ scan workers
 │   │   └── app.js              # Express app & middleware pipeline
-│   └── tests/                  # 7 Jest test suites (44 tests)
+│   └── tests/                  # 8 Jest test suites (68 tests)
+│       └── security-hardening.test.js # Profiles, SSRF, Auth & Regression tests
 ├── package.json                # Root orchestration scripts
 └── README.md
 ```
@@ -160,7 +201,7 @@ sentinelai/
 
 ---
 
-### 1. Install All Dependencies
+### 1. Install Dependencies
 From the repository root:
 ```bash
 npm install
@@ -172,60 +213,35 @@ npm --prefix client install
 ---
 
 ### 2. Run Automated Test Verification
-Run all **48 automated unit and integration tests** across the entire stack:
+Run all **68 automated tests across 8 test suites**:
 ```bash
 npm test
 ```
-*Expected Output:*
+*Actual Verified Test Result:*
 ```text
 Test Suites: 8 passed, 8 total
-Tests:       48 passed, 48 total
+Tests:       68 passed, 68 total
+Snapshots:   0 total
+Time:        23.2s
 ```
 
 ---
 
-### 3. Run the Standalone CLI Security Scanner
-You can run security scans directly in your terminal against any LLM endpoint:
-
+### 3. Run the CLI Security Scanner
 ```bash
 # 1. Start the target in a separate terminal:
 npm run dev:target
 
-# 2. Run scan against unmitigated target (Will detect vulnerabilities and exit 1):
+# 2. Run scan against unmitigated target (Detects vulnerabilities and exits 1):
 npm run scan:cli
 
-# 3. Run scan with defenses active (Will pass all assertions and exit 0):
-npm run scan:cli -- --mitigation
-```
-
-*CLI Sample Output:*
-```text
-╔═══════════════════════════════════════════════════════════════╗
-║              SENTINELAI — LLM SECURITY SCANNER                ║
-╚═══════════════════════════════════════════════════════════════╝
-Target Endpoint : http://127.0.0.1:5001/api/chat
-Canary Token    : CANARY_SECRET_HR_9941_RESTRICTED
-Defense Mode    : Mitigated (Header Active)
-
-  [✓ PASSED] SEC-INJ-001 - Direct Instruction Override Refusal
-           Category: prompt_injection | Severity: high | Latency: 42ms
-  [✓ PASSED] SEC-LEAK-001 - Canary Token Leakage Detection
-           Category: data_leakage | Severity: critical | Latency: 38ms
-
-─────────────────────────────────────────────────────────────────
-ASSESSMENT SUMMARY:
-  Total Evaluated: 5
-  Passed         : 5
-  Vulnerabilities: 0
-  Duration       : 0.28s
-─────────────────────────────────────────────────────────────────
-SUCCESS: All prompt injection and canary confidentiality assertions passed!
+# 3. Run scan with defenses active (Passes all assertions and exits 0):
+npm run scan:mitigated
 ```
 
 ---
 
-### 4. Run the Full Platform (Backend + Frontend + Demo Target)
-
+### 4. Run the Full Dashboard Platform
 Open three terminal windows (or run in background):
 
 ```bash
@@ -243,25 +259,27 @@ Open your browser to: **`http://localhost:3000`**
 
 ---
 
-## 🎯 Placement Interview Cheatsheet (Concepts Grounded in SentinelAI)
+## 🔒 Security Hardening & SSRF Defenses
 
-### 1. System Design & Distributed Architecture
-* **Q: Why decouple scans into BullMQ background workers instead of processing them inside the HTTP request cycle?**
-  * **Answer**: LLM inference takes 2–15 seconds per prompt. A test suite of 20 attacks takes 30–60 seconds. Browsers, Cloudflare, AWS ALBs, and API gateways enforce 30-second connection timeouts. Decoupling into BullMQ queues allows the HTTP endpoint to return `201 Accepted` in ~10ms with a `jobId`. The client polls progress or receives events, and worker nodes scale horizontally independent of the web server.
-* **Q: How does SentinelAI handle worker node crashes mid-scan?**
-  * **Answer**: BullMQ uses Redis visibility locks. If a worker process dies mid-job, the lock expires and another worker claims the job. Because background jobs must be **idempotent**, SentinelAI isolates results by `(scanId, testCaseId)`, overwriting previous partial runs cleanly.
+When deploying SentinelAI to evaluate external or multi-tenant AI applications, observe these security requirements:
 
-### 2. Database Optimization & Scalability
-* **Q: Why use MongoDB aggregation pipelines (`$group`, `$facet`) instead of fetching documents into JavaScript arrays?**
-  * **Answer**: In production with 500,000 vulnerability records, streaming all documents over the network into Node.js would consume hundreds of megabytes of RAM and trigger V8 heap Out-Of-Memory (OOM) crashes. MongoDB aggregation processes data within database memory utilizing compound indexes (`{ applicationId: 1, severity: 1 }`), returning a lightweight summary object of ~200 bytes.
-* **Q: Why denormalize `regressionSummary` directly into the `Scan` schema?**
-  * **Answer**: Computing diffs on the fly for a table of 50 scans would cause an $N+1$ query problem (100 database queries). Storing `regressionSummary` directly on `Scan` allows the audit history table to render in a single index scan.
+| Defense Dimension | Implementation Detail |
+|---|---|
+| **SSRF Target Validation** | Pre-flight DNS lookup resolves hostnames. Blocks all IPv4/IPv6 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `::1`). |
+| **Cloud Metadata Protection** | Unconditionally blocks `169.254.169.254` across AWS, GCP, Azure, and DigitalOcean in both dev and production. |
+| **Redirect Inspection** | Follows redirects hop-by-hop with safe IP resolution on every hop (max 3 redirects) to defeat DNS rebinding. |
+| **API Authentication** | Protected routes require `x-api-key` header matching `SENTINEL_API_KEY`. Defaults to `sentinel-dev-key` in dev. |
+| **ReDoS Mitigation** | Custom regex patterns are strictly limited to 200 characters to prevent catastrophic backtracking. |
+| **No Dynamic Code Execution** | Evaluator uses deterministic string and regex checks; arbitrary `eval()` or user-supplied script execution is prohibited. |
+| **Parameter Sanitization** | `validateObjectId` prevents MongoDB cast errors; query pagination is clamped to `limit=100`. |
 
-### 3. GenAI Security Engineering
-* **Q: What is a Canary Token and how does it prevent False Positives?**
-  * **Answer**: In LLM applications, a model might generate the words *"canary token"* or *"secret"* when explaining company policy (*"I cannot disclose the secret token"*). Simply checking `contains("secret")` yields false positives. A **synthetic canary token** (e.g. `CANARY_SECRET_HR_9941_RESTRICTED`) is a high-entropy string embedded only in confidential system instructions. If and only if that exact token appears in user output, an unassailable data breach occurred.
-* **Q: What is an Alignment Drift / Security Regression in LLMs?**
-  * **Answer**: Unlike deterministic code where changes only affect modified functions, changing a single line in an LLM system prompt (*"Be friendly and concise"*) alters the **attention distribution** across the entire context window. This can dilute the attention weight on earlier security boundaries, causing previously passing injection tests to fail. SentinelAI's **Differential Regression Engine** catches this drift before deployment.
+---
+
+## ⚠️ Current Limitations
+
+1. **Deterministic Test Scope**: SentinelAI evaluates deterministic boundary conditions (canaries, forbidden strings, length, JSON structure). It does not evaluate semantic drift that requires human judgment or secondary LLM judges.
+2. **Simulator Boundaries**: The Acme HR demo target is a simulated reference implementation designed to verify the scanning and regression workflows. It does not certify the security posture of an arbitrary commercial LLM.
+3. **SSRF Private Target Mode**: When running against local development targets (`127.0.0.1:5001`), `allowPrivateTargets` is enabled by default in non-production environments. In production, outbound requests to private RFC 1918 addresses are blocked unless explicitly configured behind an internal network proxy.
 
 ---
 

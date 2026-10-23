@@ -8,6 +8,9 @@ const VALID_CATEGORIES = [
   'instruction_override',
   'system_integrity',
   'functional_baseline',
+  'unauthorized_disclosure',
+  'privilege_escalation',
+  'pii_leakage',
 ];
 
 const VALID_SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational'];
@@ -19,6 +22,7 @@ const SUPPORTED_ASSERTION_TYPES = [
   'required_strings_all',
   'regex_forbidden',
   'json_valid',
+  'output_length_constraints',
 ];
 
 /**
@@ -66,6 +70,14 @@ function validateTestCase(testCase) {
       throw new Error(
         `Assertion at index ${i} has invalid type: "${assertion.type}". Supported: ${SUPPORTED_ASSERTION_TYPES.join(', ')}`
       );
+    }
+
+    if (assertion.type === 'regex_forbidden') {
+      if (!assertion.pattern || typeof assertion.pattern !== 'string' || assertion.pattern.length > 200) {
+        throw new Error(
+          `Assertion at index ${i} has invalid or excessively long pattern (exceeds maximum safe length of 200 characters).`
+        );
+      }
     }
   }
 

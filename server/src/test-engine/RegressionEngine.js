@@ -101,57 +101,82 @@ class RegressionEngine {
         }
       }
 
-      details.push({
-        testCaseId: tRes.testCaseId,
-        testCaseName: tRes.testCaseName,
-        category: tRes.category,
-        severity: tRes.severity,
-        baselineVerdict,
-        targetVerdict: tRes.verdict,
-        diffType,
-        evidence: tRes.evidence || null,
-        latencyDeltaMs: bRes ? (tRes.latencyMs || 0) - (bRes.latencyMs || 0) : 0,
-      });
-    }
+        details.push({
+          testCaseId: tRes.testCaseId,
+          testCaseName: tRes.testCaseName,
+          testCaseVersion: tRes.testCaseVersion || '1.0.0',
+          baselineVersion: bRes ? (bRes.testCaseVersion || '1.0.0') : null,
+          isVersionChanged: bRes && tRes.testCaseVersion && bRes.testCaseVersion && tRes.testCaseVersion !== bRes.testCaseVersion,
+          category: tRes.category,
+          severity: tRes.severity,
+          baselineVerdict,
+          targetVerdict: tRes.verdict,
+          diffType,
+          evidence: tRes.evidence || null,
+          latencyDeltaMs: bRes ? (tRes.latencyMs || 0) - (bRes.latencyMs || 0) : 0,
+        });
+      }
 
-    // Determine overall regression verdict
-    let verdict = 'UNCHANGED';
-    if (regressions.length > 0) {
-      verdict = 'REGRESSED';
-    } else if (fixes.length > 0) {
-      verdict = 'IMPROVED';
-    }
+      // Check for test cases present in baseline but missing from target scan
+      const targetIds = new Set(targetResults.map((r) => r.testCaseId));
+      const removedTests = [];
+      for (const bRes of baselineResults) {
+        if (!targetIds.has(bRes.testCaseId)) {
+          const removedItem = {
+            testCaseId: bRes.testCaseId,
+            testCaseName: bRes.testCaseName,
+            testCaseVersion: bRes.testCaseVersion || '1.0.0',
+            category: bRes.category,
+            severity: bRes.severity,
+            baselineVerdict: bRes.verdict,
+            targetVerdict: 'not_in_target',
+            diffType: 'REMOVED_TEST',
+          };
+          removedTests.push(removedItem);
+          details.push(removedItem);
+        }
+      }
 
-    const baselinePassRate = baselineScan.totalTests > 0
-      ? (baselineScan.passedCount / baselineScan.totalTests) * 100
-      : 0;
+      // Determine overall regression verdict
+      let verdict = 'UNCHANGED';
+      if (regressions.length > 0) {
+        verdict = 'REGRESSED';
+      } else if (fixes.length > 0) {
+        verdict = 'IMPROVED';
+      }
 
-    const targetPassRate = targetScan.totalTests > 0
-      ? (targetScan.passedCount / targetScan.totalTests) * 100
-      : 0;
+      const baselinePassRate = baselineScan.totalTests > 0
+        ? (baselineScan.passedCount / baselineScan.totalTests) * 100
+        : 0;
 
-    const passRateDelta = Math.round((targetPassRate - baselinePassRate) * 10) / 10;
+      const targetPassRate = targetScan.totalTests > 0
+        ? (targetScan.passedCount / targetScan.totalTests) * 100
+        : 0;
 
-    return {
-      verdict,
-      targetScanId: targetScan._id.toString(),
-      baselineScanId: baselineScan._id.toString(),
-      applicationId: targetScan.applicationId.toString(),
-      summary: {
-        totalEvaluated: targetResults.length,
-        regressionsCount: regressions.length,
-        fixesCount: fixes.length,
-        unresolvedCount: unresolved.length,
-        consistentPassedCount: consistentPassed.length,
-        baselinePassRate: Math.round(baselinePassRate * 10) / 10,
-        targetPassRate: Math.round(targetPassRate * 10) / 10,
-        passRateDelta,
-      },
-      regressions,
-      fixes,
-      unresolved,
-      details,
-    };
+      const passRateDelta = Math.round((targetPassRate - baselinePassRate) * 10) / 10;
+
+      return {
+        verdict,
+        targetScanId: targetScan._id.toString(),
+        baselineScanId: baselineScan._id.toString(),
+        applicationId: targetScan.applicationId.toString(),
+        summary: {
+          totalEvaluated: targetResults.length,
+          regressionsCount: regressions.length,
+          fixesCount: fixes.length,
+          unresolvedCount: unresolved.length,
+          consistentPassedCount: consistentPassed.length,
+          removedTestsCount: removedTests.length,
+          baselinePassRate: Math.round(baselinePassRate * 10) / 10,
+          targetPassRate: Math.round(targetPassRate * 10) / 10,
+          passRateDelta,
+        },
+        regressions,
+        fixes,
+        unresolved,
+        removedTests,
+        details,
+      };
   }
 }
 

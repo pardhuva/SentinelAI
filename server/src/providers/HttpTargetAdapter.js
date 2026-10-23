@@ -1,8 +1,9 @@
 const BaseTargetAdapter = require('./BaseTargetAdapter');
+const { validateTargetDestination } = require('./ssrfValidator');
 
 /**
  * HttpTargetAdapter
- * Dispatches test prompts to external or local HTTP endpoints (such as our demo target or developer microservices).
+ * Dispatches test prompts to external or local HTTP endpoints with enterprise SSRF protections.
  */
 class HttpTargetAdapter extends BaseTargetAdapter {
   /**
@@ -12,6 +13,7 @@ class HttpTargetAdapter extends BaseTargetAdapter {
    * @param {Object} [config.headers={}] - Custom headers (e.g. auth tokens, mitigation flags)
    * @param {string} [config.bodyTemplate] - Optional JSON template with `{{prompt}}` replacement
    * @param {number} [config.timeoutMs=5000] - Request timeout in ms
+   * @param {boolean} [config.allowPrivateTargets] - Explicit opt-in for internal loopback targets in dev
    */
   constructor(config = {}) {
     super(config);
@@ -33,6 +35,10 @@ class HttpTargetAdapter extends BaseTargetAdapter {
     this.method = (config.method || 'POST').toUpperCase();
     this.headers = config.headers || {};
     this.timeoutMs = config.timeoutMs || 5000;
+    this.allowPrivateTargets =
+      config.allowPrivateTargets !== undefined
+        ? Boolean(config.allowPrivateTargets)
+        : process.env.ALLOW_PRIVATE_TARGETS === 'true' || process.env.NODE_ENV !== 'production';
   }
 
   /**
@@ -63,12 +69,52 @@ class HttpTargetAdapter extends BaseTargetAdapter {
     }
 
     try {
-      const response = await fetch(this.url, {
-        method: this.method,
-        headers: effectiveHeaders,
-        body,
-        signal: AbortSignal.timeout(effectiveTimeout),
+      // 1. SSRF Pre-Flight Destination Validation
+      await validateTargetDestination(this.url, {
+        allowPrivateTargets: this.allowPrivateTargets,
       });
+
+      // 2. Outbound Request with Manual Redirect Validation
+      let currentUrl = this.url;
+      let hops = 0;
+      const MAX_REDIRECTS = 3;
+      let response;
+
+      while (hops <= MAX_REDIRECTS) {
+        response = await fetch(currentUrl, {
+          method: this.method,
+          headers: effectiveHeaders,
+          body,
+          signal: AbortSignal.timeout(effectiveTimeout),
+          redirect: 'manual',
+        });
+
+        // Handle Redirects (301, 302, 303, 307, 308)
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+          const redirectLocation = response.headers.get('location');
+          if (!redirectLocation) {
+            break;
+          }
+
+          // Resolve relative or absolute redirect URL
+          const resolvedRedirectUrl = new URL(redirectLocation, currentUrl).toString();
+
+          // Validate redirect destination against SSRF rules before following!
+          await validateTargetDestination(resolvedRedirectUrl, {
+            allowPrivateTargets: this.allowPrivateTargets,
+          });
+
+          currentUrl = resolvedRedirectUrl;
+          hops += 1;
+
+          if (hops > MAX_REDIRECTS) {
+            throw new Error(`SSRF Protection: Exceeded maximum allowed redirects (${MAX_REDIRECTS}).`);
+          }
+        } else {
+          // Non-redirect response received
+          break;
+        }
+      }
 
       const latencyMs = Date.now() - startTime;
       const rawText = await response.text();
@@ -101,7 +147,6 @@ class HttpTargetAdapter extends BaseTargetAdapter {
       }
 
       // Extract text output from response
-      // Handles { data: { response: "..." } }, { response: "..." }, { reply: "..." }, or plain text
       let textOutput = '';
       if (parsedData) {
         if (typeof parsedData.data?.response === 'string') {
@@ -135,6 +180,7 @@ class HttpTargetAdapter extends BaseTargetAdapter {
       const latencyMs = Date.now() - startTime;
       const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
       const isConnectionError = err.cause?.code === 'ECONNREFUSED' || err.code === 'ECONNREFUSED';
+      const isSsrfBlock = err.message && err.message.includes('SSRF Protection');
 
       return {
         success: false,
@@ -145,9 +191,11 @@ class HttpTargetAdapter extends BaseTargetAdapter {
           targetUrl: this.url,
         },
         error: {
-          code: isTimeout ? 'TIMEOUT_ERROR' : (isConnectionError ? 'CONNECTION_REFUSED' : 'NETWORK_ERROR'),
+          code: isSsrfBlock
+            ? 'SSRF_BLOCKED'
+            : (isTimeout ? 'TIMEOUT_ERROR' : (isConnectionError ? 'CONNECTION_REFUSED' : 'NETWORK_ERROR')),
           message: err.message || 'Failed to communicate with target endpoint',
-          isRetryable: isTimeout || isConnectionError,
+          isRetryable: (isTimeout || isConnectionError) && !isSsrfBlock,
         },
       };
     }
