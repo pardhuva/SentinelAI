@@ -119,7 +119,7 @@ function validateEnv(cfg) {
   }
 
   // 4. CORS Client URL Configuration
-  const clientUrl = cfg?.clientUrl !== undefined ? cfg.clientUrl : process.env.CLIENT_URL;
+  const clientUrl = cfg?.clientUrl !== undefined ? cfg.clientUrl : (process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL);
   if (!clientUrl || clientUrl === '*' || clientUrl === 'http://localhost:5173') {
     throw new Error(
       '[SentinelAI Configuration Error] In production, CLIENT_URL must be explicitly configured to the exact deployed frontend origin (e.g. https://sentinelai.example.com) and cannot be wildcard "*" or default localhost.'

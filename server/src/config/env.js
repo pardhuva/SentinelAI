@@ -16,7 +16,7 @@ const config = {
     tls: process.env.REDIS_TLS === 'true',
     url: process.env.REDIS_URL || null,
   },
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  clientUrl: process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173',
   apiKey: process.env.SENTINEL_API_KEY || process.env.API_KEY || null,
   requireAuth: process.env.REQUIRE_AUTH === 'true' || process.env.NODE_ENV === 'production',
   allowPrivateTargets: process.env.ALLOW_PRIVATE_TARGETS === 'true',
