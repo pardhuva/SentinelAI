@@ -14,7 +14,7 @@ async function setupTestDB() {
   if (!mongoServer) {
     mongoServer = await MongoMemoryServer.create({
       binary: {
-        version: '8.2.6',
+        version: '7.0.24',
       },
       instance: {
         ip: '127.0.0.1',
@@ -29,17 +29,23 @@ async function setupTestDB() {
 }
 
 /**
- * Disconnects Mongoose and stops the in-memory MongoDB instance.
+ * Disconnects Mongoose. Keeps the in-memory MongoDB instance alive across test suites for performance.
  */
-async function teardownTestDB() {
+async function teardownTestDB(forceStop = false) {
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
-  if (mongoServer) {
+  if (forceStop && mongoServer) {
     await mongoServer.stop();
     mongoServer = null;
   }
 }
+
+process.on('exit', () => {
+  if (mongoServer) {
+    mongoServer.stop();
+  }
+});
 
 /**
  * Clears all documents between test suites to ensure strict isolation.
